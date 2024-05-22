@@ -30,23 +30,23 @@ Metamask browser extension
 
 ## Installation
 ### 1.Clone the repo
-git clone https://github.com/your-username/smart-contract-react-dapp.git
-cd smart-contract-react-dapp
+`git clone https://github.com/your-username/smart-contract-react-dapp.git
+cd smart-contract-react-dapp`
 
 ### 2.Install NPM packages
-npm install
+`npm install`
 
 ### 3.Compile and Deploy Smart Contract
 Using Truffle:
-truffle compile
-truffle migrate
+`truffle compile
+truffle migrate`
 
 Using Hardhat:
-npx hardhat compile
-npx hardhat run scripts/deploy.js
+`npx hardhat compile
+npx hardhat run scripts/deploy.js`
 
 ### 4.Start the React App
-npm start
+`npm start`
 
 
 ## Usage
@@ -55,13 +55,13 @@ npm start
 3.Interact with the deployed smart contract using the provided UI.
 
 ## Project Structure
-### -contracts/: Solidity smart contract files.
-### -src/: React application source files.
-   ### -components/: React components.
-   ### -contexts/: React context for state management.
-   ### -utils/: Utility functions and helpers (e.g., Web3/Ethers setup).
-   ### -App.js: Main React component.
-   ### -index.js: Entry point for the React app.
+-contracts/: Solidity smart contract files.
+-src/: React application source files.
+_   -components/: React components.
+_   -contexts/: React context for state management.
+_   -utils/: Utility functions and helpers (e.g., Web3/Ethers setup).
+_   -App.js: Main React component.
+_   -index.js: Entry point for the React app.
 
 ## Contributing
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.
