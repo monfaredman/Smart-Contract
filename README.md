@@ -57,11 +57,11 @@ npm start
 ## Project Structure
 ### -contracts/: Solidity smart contract files.
 ### -src/: React application source files.
-  ### -components/: React components.
-  ### -contexts/: React context for state management.
-  ### -utils/: Utility functions and helpers (e.g., Web3/Ethers setup).
-  ### -App.js: Main React component.
-  ### -index.js: Entry point for the React app.
+   ### -components/: React components.
+   ### -contexts/: React context for state management.
+   ### -utils/: Utility functions and helpers (e.g., Web3/Ethers setup).
+   ### -App.js: Main React component.
+   ### -index.js: Entry point for the React app.
 
 ## Contributing
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.
