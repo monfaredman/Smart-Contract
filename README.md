@@ -14,19 +14,19 @@ Transaction Handling: Display and handle blockchain transactions and events.
 
 ## Technologies Used
 - Solidity: For writing the smart contract.
-_ React: For building the user interface.
-_ Web3.js/Ethers.js: For blockchain interaction.
-_ Metamask: For user authentication.
-_ Bootstrap/Material-UI: For styling the application.
+- React: For building the user interface.
+- Web3.js/Ethers.js: For blockchain interaction.
+- Metamask: For user authentication.
+- Bootstrap/Material-UI: For styling the application.
 
 ## Getting Started
 To get a local copy up and running, follow these simple steps.
 
 ## Prerequisites
-Node.js and npm installed
-Truffle or Hardhat for smart contract development
-Ganache for local Ethereum blockchain (optional)
-Metamask browser extension
+- Node.js and npm installed
+- Truffle or Hardhat for smart contract development
+- Ganache for local Ethereum blockchain (optional)
+- Metamask browser extension
 
 ## Installation
 ### 1.Clone the repo
@@ -50,9 +50,9 @@ npx hardhat run scripts/deploy.js`
 
 
 ## Usage
-1.Open your browser and navigate to http://localhost:3000.
-2.Connect your Metamask wallet.
-3.Interact with the deployed smart contract using the provided UI.
+1. Open your browser and navigate to http://localhost:3000.
+2. Connect your Metamask wallet.
+3. Interact with the deployed smart contract using the provided UI.
 
 ## Project Structure
 - contracts/: Solidity smart contract files.
@@ -66,11 +66,11 @@ npx hardhat run scripts/deploy.js`
 
 ## Contributing
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.
-1.Fork the Project
-2.Create your Feature Branch (git checkout -b feature/AmazingFeature)
-3.Commit your Changes (git commit -m 'Add some AmazingFeature')
-4.Push to the Branch (git push origin feature/AmazingFeature)
-5.Open a Pull Request
+1. Fork the Project
+2. Create your Feature Branch (git checkout -b feature/AmazingFeature)
+3. Commit your Changes (git commit -m 'Add some AmazingFeature')
+4. Push to the Branch (git push origin feature/AmazingFeature)
+5. Open a Pull Request
 
 ## License
 Distributed under the MIT License. See LICENSE for more information.
