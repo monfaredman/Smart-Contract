@@ -4,13 +4,13 @@ Smart Contract DApp with React
 This repository contains a decentralized application (DApp) built with React that interacts with a smart contract deployed on the Ethereum blockchain. The project demonstrates how to integrate a frontend React application with a smart contract using Web3.js or Ethers.js.
 
 ## Features
-Smart Contract Deployment: Solidity smart contract for basic functionalities.
-React Integration: Connect and interact with the smart contract using a React frontend.
-Web3/Ethers Integration: Utilize Web3.js or Ethers.js for blockchain interactions.
-Metamask Authentication: Allow users to connect and authenticate with their Metamask wallet.
-State Management: Efficient state management using React hooks and context.
-User Interface: Clean and responsive UI for interacting with the smart contract.
-Transaction Handling: Display and handle blockchain transactions and events.
+- Smart Contract Deployment: Solidity smart contract for basic functionalities.
+- React Integration: Connect and interact with the smart contract using a React frontend.
+- Web3/Ethers Integration: Utilize Web3.js or Ethers.js for blockchain interactions.
+- Metamask Authentication: Allow users to connect and authenticate with their Metamask wallet.
+- State Management: Efficient state management using React hooks and context.
+- User Interface: Clean and responsive UI for interacting with the smart contract.
+- Transaction Handling: Display and handle blockchain transactions and events.
 
 ## Technologies Used
 - Solidity: For writing the smart contract.
