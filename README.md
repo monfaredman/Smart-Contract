@@ -13,7 +13,7 @@ User Interface: Clean and responsive UI for interacting with the smart contract.
 Transaction Handling: Display and handle blockchain transactions and events.
 
 ## Technologies Used
-_ Solidity: For writing the smart contract.
+- Solidity: For writing the smart contract.
 _ React: For building the user interface.
 _ Web3.js/Ethers.js: For blockchain interaction.
 _ Metamask: For user authentication.
