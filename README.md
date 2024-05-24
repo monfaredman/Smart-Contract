@@ -1,5 +1,5 @@
 # Smart-Contract
-Smart Contract DApp with React
+### Smart Contract DApp with React
 
 This repository contains a decentralized application (DApp) built with React that interacts with a smart contract deployed on the Ethereum blockchain. The project demonstrates how to integrate a frontend React application with a smart contract using Web3.js or Ethers.js.
 
