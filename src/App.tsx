@@ -14,6 +14,7 @@ import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs, { Dayjs } from "dayjs";
 import {
   registerUser,
   getUserBalance,
@@ -27,6 +28,7 @@ interface UserInfo {
   firstName: string;
   lastName: string;
   passportNo: string;
+  birthday: Dayjs | null;
 }
 
 const App: React.FC = () => {
@@ -34,6 +36,7 @@ const App: React.FC = () => {
     firstName: "",
     lastName: "",
     passportNo: "",
+    birthday: null,
   });
   const [newMessage, setNewMessage] = useState("");
   const [valueToSend, setValueToSend] = useState<string>("0.1"); // Default value
@@ -75,7 +78,10 @@ const App: React.FC = () => {
   const updateMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { didId, ipfsHash } = await generateDIDAndStoreData(userInfo);
+      const { didId, ipfsHash } = await generateDIDAndStoreData({
+        ...userInfo,
+        docFile: file,
+      });
       const tx = await registerUser(didId, ipfsHash, "0");
       console.log("tx", tx);
       setConfirmation(
@@ -163,6 +169,7 @@ const App: React.FC = () => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               margin="normal"
+              required
             />
             <TextField
               label="Value to Send (ETH)"
@@ -171,6 +178,8 @@ const App: React.FC = () => {
               value={valueToSend}
               onChange={(e) => setValueToSend(e.target.value)}
               margin="normal"
+              required
+              type="number"
             />
             <Button
               variant="contained"
@@ -205,6 +214,8 @@ const App: React.FC = () => {
               value={userInfo.firstName}
               onChange={handleChange("firstName")}
               margin="normal"
+              required
+              error={!userInfo.firstName}
             />
             <TextField
               label="Last Name"
@@ -213,12 +224,30 @@ const App: React.FC = () => {
               value={userInfo.lastName}
               onChange={handleChange("lastName")}
               margin="normal"
+              required
+              error={!userInfo.lastName}
             />
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale={"en"}
+            >
               <DemoContainer components={["DatePicker"]}>
-                <DatePicker label="Basic date picker" />
+                <DatePicker
+                  disableFuture
+                  value={userInfo.birthday}
+                  sx={{ width: "100%" }}
+                  label="Birthdate"
+                  slotProps={{
+                    field: { clearable: true },
+                    textField: { required: true, error: !userInfo.birthday },
+                  }}
+                  onChange={(newValue) =>
+                    setUserInfo({ ...userInfo, birthday: newValue })
+                  }
+                />
               </DemoContainer>
             </LocalizationProvider>
+
             <TextField
               label="Passport No"
               variant="outlined"
@@ -226,14 +255,20 @@ const App: React.FC = () => {
               value={userInfo.passportNo}
               onChange={handleChange("passportNo")}
               margin="normal"
+              required
+              error={!userInfo.passportNo}
             />
+
             <Box sx={{ mt: 4 }}>
-              <Typography variant="h5">Upload Documects</Typography>
+              <Typography color={`${file ? "black" : "red"}`} variant="h5">
+                Upload Documents
+              </Typography>
               <input
                 type="file"
                 accept=".pdf,.doc,.docx"
                 onChange={handleFileChange}
                 style={{ marginBottom: "1rem" }}
+                required
               />
               {/* <Button
                 variant="contained"
