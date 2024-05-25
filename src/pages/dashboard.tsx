@@ -14,17 +14,12 @@ import {
   Box,
   Skeleton,
 } from "@mui/material";
-import Web3 from "web3";
+import { formatEther, parseEther } from "ethers";
 import { useNavigate } from "react-router-dom";
 import { fakeAuthProvider } from "@/middleware/auth";
 import { toast } from "react-toastify";
-import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 import { useEthereumAccount } from "@/hooks/userAccount";
-
-const GANACHE_RPC_URL =
-  process.env.REACT_APP_GANACHE_RPC_URL || "http://127.0.0.1:7545";
-
-const alchemyApiKeyUrl: string = `https://eth-holesky.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+import { useContractInstance } from "@/hooks/contractAccount"; // Import the custom hook
 
 interface Transaction {
   type: string;
@@ -32,37 +27,10 @@ interface Transaction {
   timestamp: string;
 }
 
-interface UserContract extends web3.eth.Contract {
-  methods: {
-    deposit(
-      userDID: string,
-      amount: string
-    ): {
-      send(options: {
-        from: string;
-        value: string;
-        gas: number;
-      }): Promise<void>;
-    };
-    adminLogin(
-      userDID: string,
-      amount: string
-    ): {
-      send(options: {
-        from: string;
-        value: string;
-        gas: number;
-      }): Promise<void>;
-    };
-  };
-  getPastEvents(event: string, options: any): Promise<any[]>;
-}
-
 const Dashboard: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [depositAmount, setDepositAmount] = useState<string>("");
   const [userInfo, setUserInfo] = useState<string | null>(null);
-  const [contract, setContract] = useState<UserContract | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [fetchingTransactions, setFetchingTransactions] =
@@ -71,79 +39,28 @@ const Dashboard: React.FC = () => {
 
   const navigate = useNavigate();
 
-  const {
-    isLoading,
-    isMetaMaskInstalled,
-    isConnected,
-    accounts,
-    selectedAccount,
-    balance,
-  } = useEthereumAccount();
+  const { selectedAccount, signer } = useEthereumAccount();
+  const contract = useContractInstance(signer);
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
-      try {
-        if (window.ethereum) {
-          // const web3 = new Web3(window.ethereum);
-          const web3 = new Web3(
-            // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
-            new Web3.providers.HttpProvider(alchemyApiKeyUrl)
-          );
-          try {
-            await window.ethereum.request({ method: "eth_requestAccounts" });
-          } catch (error) {
-            toast.error("User denied account access");
-            return;
-          }
-
-          const networkId = await web3.eth.net.getId();
-          const deployedNetwork = UserContract.networks[networkId];
-          if (deployedNetwork) {
-            const instance = new web3.eth.Contract(
-              UserContract.abi,
-              deployedNetwork.address
-            ) as unknown as UserContract;
-            setContract(instance);
-          } else {
-            toast.error("Contract not deployed on the detected network.");
-          }
-
-          const userData = localStorage.getItem("userData");
-          if (userData) {
-            const userObj = JSON.parse(userData);
-            setUserDID(userObj.didId);
-          } else {
-            toast.error("User data not found in local storage.");
-            navigate("/register");
-            return;
-          }
-          toast.success("Initialization successful!");
-        } else {
-          toast.error("Please install MetaMask!");
-        }
-      } catch (error) {
-        toast.error((error as Error).message);
-      } finally {
-        setLoading(false);
+      const userData = localStorage.getItem("userData");
+      if (userData) {
+        const userObj = JSON.parse(userData);
+        setUserDID(userObj.didId);
+      } else {
+        toast.error("User data not found in local storage.");
+        navigate("/register");
+        return;
       }
+      toast.success("Initialization successful!");
     };
 
     init();
-  }, [navigate]);
-
-  // useEffect(() => {
-  //   // Fetch transactions only if all required variables are set
-  //   if (contract && userDID && selectedAccount) {
-  //     fetchTransactions();
-  //   }
-  // }, [contract, userDID, selectedAccount]); //
+  }, [signer, navigate]);
 
   useEffect(() => {
     const init = async () => {
-      // Existing initialization logic...
-
-      // Simulate contract and userDID setup
       if (contract && userDID && selectedAccount) {
         setIsInitialized(true);
       }
@@ -167,31 +84,22 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const fetchTransactions = async () => {
-    console.log(contract, userDID, selectedAccount);
     if (contract && userDID && selectedAccount) {
       setFetchingTransactions(true);
       try {
-        const events = await contract.getPastEvents("Deposit", {
-          filter: { userDID: userDID },
-          fromBlock: 0,
-          toBlock: "latest",
-        });
+        const events = await contract.queryFilter(
+          contract.filters.Deposit(userDID),
+          0,
+          "latest"
+        );
 
         const parsedTransactions = await Promise.all(
           events.map(async (event: any) => {
-            const web3 = new Web3(
-              // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
-              new Web3.providers.HttpProvider(alchemyApiKeyUrl)
-            );
-            const blockNumber = Number(event.blockNumber);
-            const block = await web3.eth.getBlock(blockNumber);
-            const timestamp = Number(block.timestamp);
+            const block = await event.getBlock();
+            const timestamp = block.timestamp;
             return {
               type: event.event,
-              amount: Web3.utils.fromWei(
-                event.returnValues.amount || "0",
-                "ether"
-              ),
+              amount: formatEther(event.args?.amount || "0"),
               timestamp: new Date(timestamp * 1000).toString(),
             };
           })
@@ -207,89 +115,45 @@ const Dashboard: React.FC = () => {
       toast.error("Waiting for contract, userDID, and account to be set.");
     }
   };
-  const checkUserRegistration = async (userDID: string) => {
-    try {
-      const userInfo = await contract.methods.getUserInfo(userDID).call();
-      return userInfo.isRegistered;
-    } catch (error) {
-      console.error("Error fetching user info:", error);
-      return false;
-    }
-  };
-  const getAllRegisteredUsers = async () => {
-    try {
-      const registeredUsers = await contract.methods
-        .getAllRegisteredUsersDIDs()
-        .call({ from: selectedAccount });
-      console.log("Registered Users:", registeredUsers);
-    } catch (error) {
-      console.error("Error fetching registered users:", error);
-    }
-  };
-
-  const adminLogin = async () => {
-    console.log("Contract Address:", contract!.options.address);
-    console.log("Contract ABI:", contract!.options.jsonInterface);
-
-    console.log("contract?.methods", contract?.methods);
-    try {
-      await contract!.methods["adminLogin(string,string)"](
-        "admin",
-        "password"
-      ).send({
-        from: selectedAccount,
-      });
-      return true;
-    } catch (error: any) {
-      toast.error(error.message);
-      console.log(error);
-      return false;
-    }
-  };
 
   const handleDeposit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log(contract, userDID, selectedAccount, depositAmount);
 
     if (!contract || !userDID || !selectedAccount || !depositAmount) {
       toast.error("Missing contract, userDID, account, or depositAmount.");
       return;
     }
-    let isRegistered;
-    const isAdminLogin = await adminLogin();
-    if (isAdminLogin) {
-      await getAllRegisteredUsers();
-      isRegistered = await checkUserRegistration(userDID);
-    }
-
-    if (!isRegistered) {
-      toast.error(
-        "User is not registered. Please register before making a deposit."
-      );
-      return;
-    }
-
     setLoading(true);
 
     try {
-      await contract.methods
-        .deposit(userDID, Web3.utils.toWei(depositAmount, "ether"))
-        .send({
-          from: selectedAccount,
-          value: Web3.utils.toWei(depositAmount, "ether"),
-          gas: 3000000,
-        });
+      // Parse deposit amount
+      const amount = parseEther(depositAmount);
 
+      // Perform the deposit transaction
+      const tx = await contract.deposit(userDID, {
+        from: selectedAccount,
+        value: amount,
+      });
+
+      // Wait for the transaction to be mined
+      await tx.wait();
+
+      toast.success("Deposit successful!");
       setDepositAmount("");
       fetchTransactions();
-      toast.success("Deposit successful!");
     } catch (error) {
-      toast.error((error as Error).message);
+      // Check if the error has a reason for reverting
+      if (error.reason) {
+        toast.error(`Deposit failed: ${error.reason}`);
+      } else if (error.code === "CALL_EXCEPTION") {
+        toast.error("Call exception: The transaction reverted on execution.");
+      } else {
+        toast.error("Deposit failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
-
   const handleLogout = async () => {
     await fakeAuthProvider.signout();
     navigate("/register");
@@ -305,38 +169,38 @@ const Dashboard: React.FC = () => {
           mt: 2,
         }}
       >
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography variant='h4' component='h1' gutterBottom>
           {userInfo && <span style={{ color: "blue" }}>{userInfo}'s</span>}{" "}
           Dashboard
         </Typography>
         <Button
-          variant="outlined"
-          size="small"
-          color="error"
+          variant='outlined'
+          size='small'
+          color='error'
           sx={{ height: "3rem" }}
           onClick={handleLogout}
         >
           Logout
         </Button>
       </Box>
-      <Box component="form" onSubmit={handleDeposit} sx={{ mt: 2, mb: 4 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
+      <Box component='form' onSubmit={handleDeposit} sx={{ mt: 2, mb: 4 }}>
+        <Typography variant='h5' component='h2' gutterBottom>
           Make a Deposit
         </Typography>
         <TextField
-          label="Deposit Amount (ETH)"
-          variant="outlined"
+          label='Deposit Amount (ETH)'
+          variant='outlined'
           fullWidth
           value={depositAmount}
           onChange={(e) => setDepositAmount(e.target.value)}
-          margin="normal"
+          margin='normal'
           required
           disabled={loading}
         />
         <Button
-          type="submit"
-          variant="contained"
-          color="primary"
+          type='submit'
+          variant='contained'
+          color='primary'
           sx={{ mb: 2 }}
           disabled={loading}
         >
@@ -344,7 +208,7 @@ const Dashboard: React.FC = () => {
         </Button>
       </Box>
 
-      <Typography variant="h5" component="h2" gutterBottom>
+      <Typography variant='h5' component='h2' gutterBottom>
         Transaction History
       </Typography>
       <Box
@@ -377,40 +241,21 @@ const Dashboard: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {fetchingTransactions ? (
-                <>
-                  <TableRow>
-                    <TableCell>
-                      <Skeleton />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton />
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>
-                      <Skeleton />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton />
-                    </TableCell>
-                  </TableRow>
-                </>
-              ) : (
-                transactions.map((transaction, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{transaction.type}</TableCell>
-                    <TableCell>{transaction.amount}</TableCell>
-                    <TableCell>{transaction.timestamp}</TableCell>
-                  </TableRow>
-                ))
-              )}
+              {fetchingTransactions
+                ? Array.from(new Array(3)).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell colSpan={3}>
+                        <Skeleton />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : transactions.map((transaction, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{transaction.type}</TableCell>
+                      <TableCell>{transaction.amount}</TableCell>
+                      <TableCell>{transaction.timestamp}</TableCell>
+                    </TableRow>
+                  ))}
             </TableBody>
           </Table>
         </TableContainer>

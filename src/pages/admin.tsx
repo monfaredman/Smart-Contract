@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import Web3 from "web3";
-import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 import {
   Container,
   Typography,
@@ -22,13 +21,12 @@ import {
   TableRow,
 } from "@mui/material";
 import { toast } from "react-toastify";
+import { useEthereumAccount } from "@/hooks/userAccount";
 import { fakeAuthProvider } from "@/middleware/auth";
+import { useContractInstance } from "@/hooks/contractAccount"; // Import the custom hook
 import { retrieveUserInfo, retrieveDocFile } from "@/services/services";
 import { useNavigate } from "react-router-dom";
-
-const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
-const alchemyApiKeyUrl: string = `https://eth-holesky.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
-const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
+import { formatEther, parseEther } from "ethers";
 
 interface UserInfo {
   depositAmount: number;
@@ -42,8 +40,6 @@ interface UserInfo {
 
 const Admin: React.FC = () => {
   const [web3, setWeb3] = useState<Web3 | null>(null);
-  const [contract, setContract] = useState<any>(null);
-  const [accounts, setAccounts] = useState<string[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<string[]>([]);
   const [networkBalance, setNetworkBalance] = useState<number>(0);
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
@@ -52,47 +48,14 @@ const Admin: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [retrievedFile, setRetrievedFile] = useState<Uint8Array | null>(null);
   const [userDetails, setUserDetails] = useState<UserInfo | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const web3Instance = new Web3(
-          // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
-          new Web3.providers.HttpProvider(alchemyApiKeyUrl)
-        );
-        setWeb3(web3Instance);
-
-        const accounts = await web3Instance.eth.getAccounts();
-        setAccounts(accounts);
-
-        const networkId = await web3Instance.eth.net.getId();
-        const deployedNetwork = UserContract.networks[networkId];
-        if (deployedNetwork) {
-          // const instance = new web3Instance.eth.Contract(
-          //   UserContract.abi,
-          //   deployedNetwork.address
-          // );
-          const instance = new web3Instance.eth.Contract(
-            UserContract.abi,
-            contractAddress
-          );
-
-          setContract(instance);
-        } else {
-          toast.error("Contract not deployed on the detected network.");
-        }
-      } catch (error: any) {
-        toast.error(error.message);
-      }
-    };
-    init();
-  }, []);
+  const { signer } = useEthereumAccount();
+  const contract = useContractInstance(signer);
 
   const adminLogout = async () => {
     try {
-      await contract.methods.adminLogout().send({ from: accounts[0] });
       await fakeAuthProvider.logoutAdmin();
       navigate("/register");
     } catch (error: any) {
@@ -103,9 +66,7 @@ const Admin: React.FC = () => {
   const fetchRegisteredUsers = async () => {
     if (contract) {
       try {
-        const users = await contract.methods
-          .getAllRegisteredUsersDIDs()
-          .call({ from: accounts[0] });
+        const users = await contract.getAllRegisteredUsersDIDs();
         setRegisteredUsers(users);
       } catch (error: any) {
         toast.error(error.message);
@@ -115,28 +76,49 @@ const Admin: React.FC = () => {
 
   const fetchNetworkBalance = async () => {
     try {
-      const balance = await contract.methods
-        .getNetworkBalance()
-        .call({ from: accounts[0] });
-      setNetworkBalance(parseFloat(web3!.utils.fromWei(balance, "ether")));
+      // Call the getNetworkBalance function from your contract
+      const balance = await contract!.getNetworkBalance();
+
+      // Convert the balance from Wei to Ether using formatEther
+      const balanceInEther = formatEther(balance);
+
+      // Update the state with the formatted balance
+      setNetworkBalance(parseFloat(balanceInEther));
     } catch (error: any) {
-      toast.error(error.message);
+      // Display an error message to the user
+      toast.error(error.message || "Failed to fetch network balance.");
     }
   };
 
   const handleWithdraw = async () => {
+    setLoading(true);
+
     try {
-      fetchNetworkBalance();
+      // Fetch the latest network balance before withdrawal
+      await fetchNetworkBalance();
+
+      // Check if the withdrawal amount is greater than the available balance
       if (parseFloat(withdrawAmount) > networkBalance) {
         toast.error("Insufficient balance");
         return;
       }
-      const amountWei = web3!.utils.toWei(withdrawAmount, "ether");
-      await contract.methods.withdraw(amountWei).send({ from: accounts[0] });
+
+      // Convert the withdrawal amount from Ether to Wei (required for transaction)
+      const amountWei = parseEther(withdrawAmount);
+
+      // Call the withdraw function from the contract
+      await contract!.withdraw(amountWei);
+
+      // Clear the withdrawal amount input after a successful transaction
       setWithdrawAmount("");
-      fetchNetworkBalance(); // Refresh balance after withdrawal
+
+      // Refresh the network balance after withdrawal
+      await fetchNetworkBalance();
     } catch (error: any) {
-      toast.error(error.message);
+      // Display an error message if the withdrawal fails
+      toast.error(error.message || "Failed to withdraw.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,15 +143,12 @@ const Admin: React.FC = () => {
 
   const handleUserClick = async (user: string) => {
     try {
-      const userInfo = await contract.methods
-        .getUserInfo(user)
-        .call({ from: accounts[0] });
-
+      const userInfo = await contract!.getUserInfo(user);
       if (!userInfo.ipfsUserInfoHash) {
-        throw new Error("userInfo.ipfsUserInfoHash is undefined.");
+        throw new Error("ipfsUserInfoHash is undefined.");
       }
       if (!userInfo.docFileIPFSHash) {
-        throw new Error("userInfo.docFileIPFSHash is undefined.");
+        throw new Error("docFileIPFSHash is undefined.");
       }
 
       const retrievedFile = await retrieveDocFile(userInfo.docFileIPFSHash);
@@ -190,13 +169,13 @@ const Admin: React.FC = () => {
     <Container>
       <Box my={4}>
         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography variant="h3" component="h1" gutterBottom>
+          <Typography variant='h3' component='h1' gutterBottom>
             Admin Dashboard
           </Typography>
           <Button
-            variant="outlined"
-            size="small"
-            color="error"
+            variant='outlined'
+            size='small'
+            color='error'
             style={{ height: "3rem" }}
             onClick={adminLogout}
           >
@@ -204,9 +183,9 @@ const Admin: React.FC = () => {
           </Button>
         </Box>
         <Tabs value={tabIndex} onChange={handleChangeTab}>
-          <Tab label="Registered Users" />
-          <Tab label="Network Balance" />
-          <Tab label="Withdraw Funds" />
+          <Tab label='Registered Users' />
+          <Tab label='Network Balance' />
+          <Tab label='Withdraw Funds' />
         </Tabs>
         {tabIndex === 0 && (
           <Box my={4}>
@@ -215,21 +194,21 @@ const Admin: React.FC = () => {
                 <TableHead>
                   <TableRow>
                     <TableCell>User DID</TableCell>
-                    <TableCell>Actions</TableCell>
+                    {/* <TableCell>Actions</TableCell> */}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {registeredUsers.map((user, index) => (
                     <TableRow key={index}>
                       <TableCell>{user}</TableCell>
-                      <TableCell>
+                      {/* <TableCell>
                         <Button
-                          variant="outlined"
+                          variant='outlined'
                           onClick={() => handleUserClick(user)}
                         >
                           View Details
                         </Button>
-                      </TableCell>
+                      </TableCell> */}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -239,30 +218,32 @@ const Admin: React.FC = () => {
         )}
         {tabIndex === 1 && (
           <Box my={4}>
-            <Typography variant="h5" component="h2">
+            <Typography variant='h5' component='h2'>
               Network Balance: {networkBalance} ETH
             </Typography>
           </Box>
         )}
         {tabIndex === 2 && (
           <Box my={4}>
-            <Typography variant="h5" component="h2">
+            <Typography variant='h5' component='h2'>
               Withdraw Funds
             </Typography>
             <TextField
-              label="Amount in ETH"
+              label='Amount in ETH'
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
-              variant="outlined"
+              variant='outlined'
               fullWidth
-              margin="normal"
+              margin='normal'
+              disabled={loading}
             />
             <Button
-              variant="contained"
-              color="primary"
+              variant='contained'
+              color='primary'
               onClick={handleWithdraw}
+              disabled={loading}
             >
-              Withdraw
+              {loading ? "Processing..." : "Withdraw"}
             </Button>
           </Box>
         )}
@@ -271,7 +252,7 @@ const Admin: React.FC = () => {
         <Dialog open={isModalOpen} onClose={handleCloseModal}>
           <DialogTitle>User Details</DialogTitle>
           <DialogContent>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Deposit Amount:{" "}
               {web3!.utils.fromWei(
                 userDetails.depositAmount.toString(),
@@ -279,16 +260,16 @@ const Admin: React.FC = () => {
               )}{" "}
               ETH
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               First Name: {userDetails.firstName}
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Last Name: {userDetails.lastName}
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Passport No: {userDetails.passportNo}
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Birthday: {userDetails.birthday}
             </Typography>
             {retrievedFile && (
@@ -298,14 +279,14 @@ const Admin: React.FC = () => {
                     type: "application/octet-stream",
                   })
                 )}
-                download="retrievedDocument"
+                download='retrievedDocument'
               >
                 Download Document
               </a>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseModal} color="primary">
+            <Button onClick={handleCloseModal} color='primary'>
               Close
             </Button>
           </DialogActions>

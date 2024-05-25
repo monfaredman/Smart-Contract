@@ -1,19 +1,16 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import React, { useState, ChangeEvent, FormEvent } from "react";
 import { TextField, Button, Typography, Box, Alert } from "@mui/material";
-import Web3 from "web3";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Dayjs } from "dayjs";
 import { useNavigate } from "react-router-dom";
-import UserContract from "~/build/contracts/UserRegistration.json";
 import { generateDIDAndStoreData } from "@/services/services";
 import { fakeAuthProvider } from "@/middleware/auth";
 import { toast } from "react-toastify";
 import { useEthereumAccount } from "@/hooks/userAccount";
-
-const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
-const alchemyApiKeyUrl: string = `https://eth-holesky.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+import { useContractInstance } from "@/hooks/contractAccount"; // Import the custom hook
+import { parseEther } from "ethers";
 
 interface UserInfo {
   firstName: string;
@@ -32,53 +29,12 @@ const Register: React.FC = () => {
     docFile: null,
   });
 
-  const [contract, setContract] = useState<Web3.eth.Contract | null>(null);
   const [fileConfirmation, setFileConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const navigate = useNavigate();
-  const {
-    isLoading,
-    isMetaMaskInstalled,
-    isConnected,
-    accounts,
-    selectedAccount,
-    balance,
-  } = useEthereumAccount();
-  useEffect(() => {
-    console.log("alchemyApiKey", alchemyApiKeyUrl);
-    const init = async () => {
-      try {
-        // const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
-        const web3 = new Web3(
-          new Web3.providers.HttpProvider(alchemyApiKeyUrl)
-        );
-        console.log("web3", web3);
-
-        const networkId = await web3.eth.net.getId();
-        console.log("networkId", networkId);
-        const deployedNetwork = UserContract.networks[networkId];
-        console.log("deployedNetwork", deployedNetwork);
-        console.log("UserContract", UserContract);
-        console.log("UserContract.abi", UserContract.abi);
-        console.log(" deployedNetwork.address", deployedNetwork.address);
-        if (deployedNetwork) {
-          const instance = new web3.eth.Contract(
-            UserContract.abi,
-            deployedNetwork.address
-          );
-          console.log("instance", instance);
-          setContract(instance);
-        } else {
-          toast.error("Contract not deployed on the detected network.");
-        }
-      } catch (error: any) {
-        toast.error(error.message);
-      }
-    };
-
-    init();
-  }, []);
+  const { selectedAccount, signer } = useEthereumAccount();
+  const contract = useContractInstance(signer);
 
   const handleChange =
     (prop: keyof UserInfo) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -101,7 +57,6 @@ const Register: React.FC = () => {
 
   const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
-    console.log("contract", contract);
     if (!contract) {
       toast.error("Contract instance not initialized.");
       return;
@@ -126,27 +81,16 @@ const Register: React.FC = () => {
         birthday: birthday.format("YYYY-MM-DD"),
         docFile,
       });
-      console.log("selectedAccount", selectedAccount);
-      console.log("didId", didId);
-      console.log("userInfoCid", userInfoCid);
-      console.log("fileHash", fileHash);
-      console.log(contract.methods.registerUser);
-      const web3 = new Web3(new Web3.providers.HttpProvider(alchemyApiKeyUrl));
-      console.log(web3.eth);
-      try {
-        await web3.eth.sendTransaction();
-        await contract.methods
-          .registerUser(didId, userInfoCid, fileHash)
-          .send({ from: selectedAccount, gas: 3000000 });
-        toast.success("User registered successfully!");
-        localStorage.setItem("userData", JSON.stringify(userData));
-        await fakeAuthProvider.signin(firstName);
-        navigate("/");
-      } catch (error) {
-        toast.error(`Registration failed: ${error.message}`);
-        console.log(error);
-      }
+      const amount = parseEther("0.01");
 
+      const tx = await contract.registerUser(didId, userInfoCid, fileHash, {
+        from: selectedAccount,
+        gasLimit: 3000000,
+        value: amount,
+      });
+      await tx.wait();
+
+      toast.success("User registered successfully!");
       const userData = {
         firstName,
         lastName,
@@ -157,8 +101,12 @@ const Register: React.FC = () => {
         userInfoCid,
         fileHash,
       };
+
+      localStorage.setItem("userData", JSON.stringify(userData));
+      await fakeAuthProvider.signin(firstName);
+      navigate("/");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(`Registration failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -167,32 +115,32 @@ const Register: React.FC = () => {
   return (
     <>
       <Typography
-        variant="h4"
-        component="h1"
+        variant='h4'
+        component='h1'
         gutterBottom
         sx={{ marginTop: "2rem" }}
       >
         Register user to network
       </Typography>
-      <Box component="form" onSubmit={handleRegister} sx={{ mt: 2 }}>
+      <Box component='form' onSubmit={handleRegister} sx={{ mt: 2 }}>
         <TextField
-          label="First Name"
-          variant="outlined"
+          label='First Name'
+          variant='outlined'
           fullWidth
           value={userInfo.firstName}
           onChange={handleChange("firstName")}
-          margin="normal"
+          margin='normal'
           required
           error={!userInfo.firstName}
           disabled={loading}
         />
         <TextField
-          label="Last Name"
-          variant="outlined"
+          label='Last Name'
+          variant='outlined'
           fullWidth
           value={userInfo.lastName}
           onChange={handleChange("lastName")}
-          margin="normal"
+          margin='normal'
           required
           error={!userInfo.lastName}
           disabled={loading}
@@ -202,7 +150,7 @@ const Register: React.FC = () => {
             disableFuture
             value={userInfo.birthday}
             sx={{ width: "100%" }}
-            label="Birthdate"
+            label='Birthdate'
             slotProps={{
               field: { clearable: true },
               textField: { required: true, error: !userInfo.birthday },
@@ -214,46 +162,46 @@ const Register: React.FC = () => {
           />
         </LocalizationProvider>
         <TextField
-          label="Passport No"
-          variant="outlined"
+          label='Passport No'
+          variant='outlined'
           fullWidth
           value={userInfo.passportNo}
           onChange={handleChange("passportNo")}
-          margin="normal"
+          margin='normal'
           required
           error={!userInfo.passportNo}
           disabled={loading}
         />
         <Box sx={{ mt: 4 }}>
-          <Typography color={userInfo.docFile ? "black" : "red"} variant="h5">
+          <Typography color={userInfo.docFile ? "black" : "red"} variant='h5'>
             Upload Documents
           </Typography>
           <input
-            type="file"
-            accept=".pdf"
+            type='file'
+            accept='.pdf'
             onChange={handleFileChange}
             style={{ marginBottom: "1rem" }}
             required
             disabled={loading}
           />
           {fileConfirmation && (
-            <Alert severity="info" sx={{ mt: 2 }}>
+            <Alert severity='info' sx={{ mt: 2 }}>
               {fileConfirmation}
             </Alert>
           )}
         </Box>
         <Button
-          type="submit"
-          variant="contained"
-          color="primary"
+          type='submit'
+          variant='contained'
+          color='primary'
           fullWidth
           disabled={loading}
         >
           {loading ? "Registering..." : "Register User"}
         </Button>
         <Button
-          variant="outlined"
-          color="primary"
+          variant='outlined'
+          color='primary'
           fullWidth
           style={{ marginTop: "1rem" }}
           onClick={() => navigate("/loginAdmin")}

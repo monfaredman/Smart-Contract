@@ -27,7 +27,7 @@
     "dns": "^0.2.2",
     "dotenv": "^16.4.5",
     "dotenv-webpack": "^8.1.0",
-    "ethers": "^5.7.2",
+    "ethers": "^6.13.2",
     "file-loader": "^6.2.0",
     "file-saver": "^2.0.5",
     "fs": "^0.0.1-security",
