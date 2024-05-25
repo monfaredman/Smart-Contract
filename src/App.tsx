@@ -10,6 +10,10 @@ import {
   Toolbar,
   Alert,
 } from "@mui/material";
+import { DemoContainer } from "@mui/x-date-pickers/internals/demo";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {
   registerUser,
   getUserBalance,
@@ -22,20 +26,14 @@ import { generateDIDAndStoreData } from "./services";
 interface UserInfo {
   firstName: string;
   lastName: string;
-  email: string;
-  phoneNumber: string;
-  address: string;
-  dob: string;
+  passportNo: string;
 }
 
 const App: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo>({
     firstName: "",
     lastName: "",
-    email: "",
-    phoneNumber: "",
-    address: "",
-    dob: "",
+    passportNo: "",
   });
   const [newMessage, setNewMessage] = useState("");
   const [valueToSend, setValueToSend] = useState<string>("0.1"); // Default value
@@ -45,6 +43,8 @@ const App: React.FC = () => {
   );
   const [account, setAccount] = useState<string | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileConfirmation, setFileConfirmation] = useState<string | null>(null);
 
   const handleChange =
     (prop: keyof UserInfo) => (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,7 +72,7 @@ const App: React.FC = () => {
     setBalance(null);
   };
 
-  const updateMessage = async (e: { preventDefault: () => void }) => {
+  const updateMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const { didId, ipfsHash } = await generateDIDAndStoreData(userInfo);
@@ -86,6 +86,7 @@ const App: React.FC = () => {
       setConfirmation(`Registration failed: ${error.message}`);
     }
   };
+
   const handleSendValue = async () => {
     try {
       const { didId, ipfsHash } = await generateDIDAndStoreData(userInfo);
@@ -97,6 +98,31 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Error deploying contract:", error);
       setConfirmationByValue(`Error deploying contract: ${error.message}`);
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setFile(files[0]);
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!file) {
+      setFileConfirmation("Please select a file to upload.");
+      return;
+    }
+
+    try {
+      // Implement your file upload logic here
+      // Example: Upload 'file' using an API call
+      // Replace this with your actual upload logic
+      console.log("Uploading file:", file.name);
+      setFileConfirmation(`File '${file.name}' uploaded successfully.`);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setFileConfirmation(`Error uploading file: ${error.message}`);
     }
   };
 
@@ -150,7 +176,7 @@ const App: React.FC = () => {
               variant="contained"
               color="primary"
               fullWidth
-              onClick={() => handleSendValue()}
+              onClick={handleSendValue}
             >
               Send Transaction
             </Button>
@@ -188,42 +214,41 @@ const App: React.FC = () => {
               onChange={handleChange("lastName")}
               margin="normal"
             />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DemoContainer components={["DatePicker"]}>
+                <DatePicker label="Basic date picker" />
+              </DemoContainer>
+            </LocalizationProvider>
             <TextField
-              label="Email"
+              label="Passport No"
               variant="outlined"
               fullWidth
-              value={userInfo.email}
-              onChange={handleChange("email")}
+              value={userInfo.passportNo}
+              onChange={handleChange("passportNo")}
               margin="normal"
             />
-            <TextField
-              label="Phone Number"
-              variant="outlined"
-              fullWidth
-              value={userInfo.phoneNumber}
-              onChange={handleChange("phoneNumber")}
-              margin="normal"
-            />
-            <TextField
-              label="Address"
-              variant="outlined"
-              fullWidth
-              value={userInfo.address}
-              onChange={handleChange("address")}
-              margin="normal"
-            />
-            <TextField
-              label="Date of Birth"
-              type="date"
-              variant="outlined"
-              fullWidth
-              value={userInfo.dob}
-              onChange={handleChange("dob")}
-              margin="normal"
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h5">Upload Documects</Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={handleFileChange}
+                style={{ marginBottom: "1rem" }}
+              />
+              {/* <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                onClick={handleFileUpload}
+              >
+                Upload File
+              </Button> */}
+              {fileConfirmation && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {fileConfirmation}
+                </Alert>
+              )}
+            </Box>
             <Button type="submit" variant="contained" color="primary" fullWidth>
               Register
             </Button>
