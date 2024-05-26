@@ -1,15 +1,13 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 contract Register {
-    struct User {
-        string did;
-        string ipfsHash;
+    string public message;
+
+    constructor(string memory _message) {
+        message = _message;
     }
 
-    mapping(address => User) public users;
-
-    function register(string memory _did, string memory _ipfsHash) public {
-        users[msg.sender] = User(_did, _ipfsHash);
+    function setMessage(string memory _message) public {
+        message = _message;
     }
 }

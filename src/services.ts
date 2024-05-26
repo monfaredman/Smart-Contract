@@ -1,12 +1,21 @@
 import { DID } from "dids";
-// import IPFS from "ipfs-core";
-// import Web3 from "web3";
-// import RegisterContract from "./contracts/Register.json";
-// import { ImportCandidate } from "ipfs-core-types/src/utils";
+import { Ed25519Provider } from "key-did-provider-ed25519";
+import * as KeyResolver from "key-did-resolver";
+import { create } from "ipfs-core";
 
-export const generateDid = () => {
-  const did = new DID();
-  return did.toString();
+export const generateDid = async () => {
+  const seed = new Uint8Array(32); // Replace with secure entropy
+  const provider = new Ed25519Provider(seed);
+  const did = new DID({ provider, resolver: KeyResolver.getResolver() });
+
+  await did.authenticate();
+  const didId = did.id;
+
+  const ipfs = await create();
+  const { cid } = await ipfs.add(JSON.stringify("Hello world"));
+  const ipfsHash = cid.toString();
+
+  return { didId, ipfsHash };
 };
 
 // export const storeOnIpfs = async (data: ImportCandidate) => {
