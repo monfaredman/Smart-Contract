@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import "./App.css";
 import { Container, TextField, Button, Typography, Box } from "@mui/material";
 import { getWeb3, getContract } from "./services/contractService";
+import { registerUser } from "./utils/blockchain";
 
 // import { generateDid, storeOnIpfs, registerOnBlockchain } from "./services";
-import { generateDid } from "./services";
+import { generateDIDAndStoreData } from "./services";
 
 interface UserInfo {
   firstName: string;
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<string>("");
   const [message, setMessage] = useState("");
   const [newMessage, setNewMessage] = useState("");
+  const [confirmation, setConfirmation] = useState("");
 
   useEffect(() => {
     // const init = async () => {
@@ -62,15 +64,24 @@ const App: React.FC = () => {
       setUserInfo({ ...userInfo, [prop]: event.target.value });
     };
 
-  const updateMessage = async () => {
-    const did = generateDid();
-    console.log(did);
+  const updateMessage = async (e) => {
+    e.preventDefault();
     // const web3 = await getWeb3();
     // const contract = await getContract(web3);
     // const accounts = await web3.eth.getAccounts();
     // await contract.methods.setMessage(newMessage).send({ from: accounts[0] });
     // const updatedMessage = await contract.methods.message().call();
     // setMessage(updatedMessage);
+    try {
+      const { didId, ipfsHash } = await generateDIDAndStoreData({ userInfo });
+      const tx = await registerUser(didId, ipfsHash);
+      setConfirmation(
+        `Registration successful with transaction hash: ${tx.hash}`
+      );
+    } catch (error) {
+      console.error(error);
+      setConfirmation("Registration failed");
+    }
   };
 
   return (
@@ -138,6 +149,7 @@ const App: React.FC = () => {
       <Typography variant="body1" color="textSecondary" sx={{ mt: 2 }}>
         {status}
       </Typography>
+      <p>{confirmation}</p>
     </Container>
   );
 };
