@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import Register from "../../build/contracts/Register.json";
 
 // Function to connect to Web3 provider
-async function connectToWeb3() {
+export async function connectToWeb3() {
   if (typeof window.ethereum !== "undefined") {
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -42,7 +42,49 @@ async function getContractAddress(): Promise<string> {
 }
 
 // Function to register a user
-export async function registerUser(did: string, ipfsHash: string) {
+// export async function registerUser(
+//   did: string,
+//   ipfsHash: string,
+//   ethValue: string
+// ) {
+//   console.log("Starting user registration...");
+//   const { provider, signer } = (await connectToWeb3()) as {
+//     provider: ethers.providers.Web3Provider;
+//     signer: ethers.providers.JsonRpcSigner;
+//   };
+//   if (!provider || !signer) {
+//     throw new Error("Failed to connect to Web3 provider or signer.");
+//   }
+//   console.log("provider", provider);
+//   console.log("signer", signer);
+
+//   const contractAddress = await getContractAddress(); // Get contract address dynamically
+//   console.log("contractAddress", contractAddress);
+
+//   const contract = new ethers.Contract(contractAddress, Register.abi, signer);
+
+//   try {
+//     console.log("Calling registerResident function...");
+//     const valueInWei = ethers.utils.parseEther(ethValue); // Convert ETH to Wei
+//     // Call the registerResident function of the contract
+//     // const tx = await contract.registerResident(did, ipfsHash);
+//     const tx = await contract.registerResident(did, ipfsHash, {
+//       value: valueInWei,
+//     });
+//     await tx.wait();
+//     console.log("User registration successful:", tx);
+//     return tx;
+//   } catch (error) {
+//     console.error("Error registering user:", error);
+//     console.error(error);
+//     throw error;
+//   }
+// }
+export async function registerUser(
+  did: string,
+  ipfsHash: string,
+  ethValue: string
+) {
   console.log("Starting user registration...");
   const { provider, signer } = (await connectToWeb3()) as {
     provider: ethers.providers.Web3Provider;
@@ -51,15 +93,29 @@ export async function registerUser(did: string, ipfsHash: string) {
   if (!provider || !signer) {
     throw new Error("Failed to connect to Web3 provider or signer.");
   }
+  console.log("provider", provider);
+  console.log("signer", signer);
 
   const contractAddress = await getContractAddress(); // Get contract address dynamically
+  console.log("contractAddress", contractAddress);
 
   const contract = new ethers.Contract(contractAddress, Register.abi, signer);
 
   try {
+    const valueInWei = ethers.utils.parseEther(ethValue); // Convert ETH to Wei
+    const address = await signer.getAddress();
+    const balance = await provider.getBalance(address);
+    const balanceInEther = ethers.utils.formatEther(balance);
+
+    if (parseFloat(balanceInEther) < parseFloat(ethValue)) {
+      throw new Error("Insufficient funds to complete the transaction.");
+    }
+
     console.log("Calling registerResident function...");
-    // Call the registerResident function of the contract
-    const tx = await contract.registerResident(did, ipfsHash);
+    // Call the registerResident function of the contract with ETH value
+    const tx = await contract.registerResident(did, ipfsHash, {
+      value: valueInWei,
+    });
     await tx.wait();
     console.log("User registration successful:", tx);
     return tx;
@@ -92,6 +148,104 @@ export async function verifyUser(userAddress: string) {
     return result;
   } catch (error) {
     console.error("Error verifying user:", error);
+    throw error;
+  }
+}
+
+// Function to get the user's address
+export async function getUserAddress() {
+  console.log("Fetching user address...");
+  const { signer } = (await connectToWeb3()) as {
+    provider: ethers.providers.Web3Provider;
+    signer: ethers.providers.JsonRpcSigner;
+  };
+  if (!signer) {
+    throw new Error("Failed to connect to Web3 signer.");
+  }
+
+  try {
+    const address = await signer.getAddress();
+    console.log("User address:", address);
+    return address;
+  } catch (error) {
+    console.error("Error getting user address:", error);
+    throw error;
+  }
+}
+
+// Function to get the user's balance
+export async function getUserBalance() {
+  console.log("Fetching user balance...");
+  const { provider, signer } = (await connectToWeb3()) as {
+    provider: ethers.providers.Web3Provider;
+    signer: ethers.providers.JsonRpcSigner;
+  };
+  if (!provider || !signer) {
+    throw new Error("Failed to connect to Web3 provider or signer.");
+  }
+
+  try {
+    const address = await signer.getAddress();
+    const balance = await provider.getBalance(address);
+    const balanceInEther = ethers.utils.formatEther(balance);
+    console.log("User balance (ETH):", balanceInEther);
+    return balanceInEther;
+  } catch (error) {
+    console.error("Error getting user balance:", error);
+    throw error;
+  }
+}
+
+// Function to disconnect the Web3 provider
+export function disconnect() {
+  if (typeof window.ethereum !== "undefined") {
+    try {
+      window.ethereum.selectedAddress = null;
+      console.log("Disconnected from Web3 provider");
+    } catch (error) {
+      console.error("Error disconnecting from web3:", error);
+    }
+  } else {
+    console.error("No Ethereum provider found.");
+  }
+}
+
+export async function deployContractWithValue(
+  destinationAddress: string,
+  ethValue: string
+) {
+  console.log("Starting to send Ether...");
+  const { provider, signer } = (await connectToWeb3()) as {
+    provider: ethers.providers.Web3Provider;
+    signer: ethers.providers.JsonRpcSigner;
+  };
+  if (!provider || !signer) {
+    throw new Error("Failed to connect to Web3 provider or signer.");
+  }
+  console.log("provider", provider);
+  console.log("signer", signer);
+
+  try {
+    const valueInWei = ethers.utils.parseEther(ethValue); // Convert ETH to Wei
+    const address = await signer.getAddress();
+    const balance = await provider.getBalance(address);
+    const balanceInEther = ethers.utils.formatEther(balance);
+
+    if (parseFloat(balanceInEther) < parseFloat(ethValue)) {
+      throw new Error("Insufficient funds to complete the transaction.");
+    }
+
+    console.log("Sending Ether...");
+    // Send the specified amount of Ether to the destination address
+    const tx = await signer.sendTransaction({
+      to: destinationAddress,
+      value: valueInWei,
+    });
+    await tx.wait();
+    console.log("Ether sent successfully:", tx);
+    return tx;
+  } catch (error) {
+    console.error("Error sending Ether:", error);
     throw error;
   }
 }

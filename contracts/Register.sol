@@ -13,10 +13,11 @@ contract Register {
     event Registration(address indexed user, string did, string ipfsHash);
 
     // Register a resident
-    function registerResident(string memory _did, string memory _ipfsHash) public {
+    function registerResident(string memory _did, string memory _ipfsHash) public payable {
         require(bytes(_did).length > 0, "DID cannot be empty");
         require(bytes(_ipfsHash).length > 0, "IPFS hash cannot be empty");
         require(!residents[msg.sender].isRegistered, "Resident already registered");
+        require(msg.value > 0, "Must send ETH to register");
 
         residents[msg.sender] = Resident(_did, _ipfsHash, true);
         emit Registration(msg.sender, _did, _ipfsHash);
