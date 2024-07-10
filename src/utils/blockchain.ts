@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import Register from "../../build/contracts/Register.json";
+import UserContract from "../../build/contracts/UserContract.json";
 
 // Function to connect to Web3 provider
 export async function connectToWeb3() {
@@ -25,7 +25,8 @@ export async function connectToWeb3() {
 
 // Function to get the deployed contract address
 async function getContractAddress(): Promise<string> {
-  const networks: { [key: string]: { address: string } } = Register.networks;
+  const networks: { [key: string]: { address: string } } =
+    UserContract.networks;
   let networkId: string | undefined;
 
   // Iterate over keys of networks object in Register.json
@@ -41,45 +42,6 @@ async function getContractAddress(): Promise<string> {
   return networks[networkId].address;
 }
 
-// Function to register a user
-// export async function registerUser(
-//   did: string,
-//   ipfsHash: string,
-//   ethValue: string
-// ) {
-//   console.log("Starting user registration...");
-//   const { provider, signer } = (await connectToWeb3()) as {
-//     provider: ethers.providers.Web3Provider;
-//     signer: ethers.providers.JsonRpcSigner;
-//   };
-//   if (!provider || !signer) {
-//     throw new Error("Failed to connect to Web3 provider or signer.");
-//   }
-//   console.log("provider", provider);
-//   console.log("signer", signer);
-
-//   const contractAddress = await getContractAddress(); // Get contract address dynamically
-//   console.log("contractAddress", contractAddress);
-
-//   const contract = new ethers.Contract(contractAddress, Register.abi, signer);
-
-//   try {
-//     console.log("Calling registerResident function...");
-//     const valueInWei = ethers.utils.parseEther(ethValue); // Convert ETH to Wei
-//     // Call the registerResident function of the contract
-//     // const tx = await contract.registerResident(did, ipfsHash);
-//     const tx = await contract.registerResident(did, ipfsHash, {
-//       value: valueInWei,
-//     });
-//     await tx.wait();
-//     console.log("User registration successful:", tx);
-//     return tx;
-//   } catch (error) {
-//     console.error("Error registering user:", error);
-//     console.error(error);
-//     throw error;
-//   }
-// }
 export async function registerUser(
   did: string,
   ipfsHash: string,
@@ -99,7 +61,11 @@ export async function registerUser(
   const contractAddress = await getContractAddress(); // Get contract address dynamically
   console.log("contractAddress", contractAddress);
 
-  const contract = new ethers.Contract(contractAddress, Register.abi, signer);
+  const contract = new ethers.Contract(
+    contractAddress,
+    UserContract.abi,
+    signer
+  );
 
   try {
     const valueInWei = ethers.utils.parseEther(ethValue); // Convert ETH to Wei
@@ -138,7 +104,11 @@ export async function verifyUser(userAddress: string) {
 
   const contractAddress = await getContractAddress(); // Get contract address dynamically
 
-  const contract = new ethers.Contract(contractAddress, Register.abi, provider);
+  const contract = new ethers.Contract(
+    contractAddress,
+    UserContract.abi,
+    provider
+  );
 
   try {
     console.log("Calling verifyResident function...");

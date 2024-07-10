@@ -30,4 +30,13 @@ module.exports = {
       template: "./public/index.html",
     }),
   ],
+  devServer: {
+    historyApiFallback: true, // This ensures that all routes serve the index.html file
+    static: {
+      directory: path.join(__dirname, "public"), // Serve static files from the 'public' directory
+    },
+    hot: true,
+    compress: true,
+    port: 3000,
+  },
 };
