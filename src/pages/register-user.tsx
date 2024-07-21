@@ -90,23 +90,22 @@ const Register: React.FC = () => {
 
     try {
       // Generate DID and store user info in IPFS
-      const { didId, ipfsUserInfoHash, isRegistered } =
-        await generateDIDAndStoreData({
-          firstName,
-          lastName,
-          phoneNumber: passportNo,
-          birthday: birthday.format("YYYY-MM-DD"),
-          docFile,
-        });
-      console.log(555, didId, ipfsUserInfoHash, isRegistered);
+      const { cid } = await generateDIDAndStoreData({
+        firstName,
+        lastName,
+        phoneNumber: passportNo,
+        birthday: birthday.format("YYYY-MM-DD"),
+        docFile,
+      });
+      console.log(555, cid);
       // Register user on the blockchain
       await contract.methods
         .registerUser(
           firstName,
           lastName,
           birthdayString,
-          passportNo,
-          ipfsUserInfoHash // Use the IPFS hash from the generated data
+          passportNo
+          // ipfsUserInfoHash // Use the IPFS hash from the generated data
         )
         .send({ from: account, gas: 3000000 })
         .on("receipt", (receipt: any) => {

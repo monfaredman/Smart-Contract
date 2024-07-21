@@ -1,92 +1,200 @@
-import { DID } from "dids";
-import { Ed25519Provider } from "key-did-provider-ed25519";
-import KeyResolver from "key-did-resolver";
+// // services/index.js
+// import { createHelia } from "helia";
+// import { unixfs } from "@helia/unixfs";
+// import { Ed25519Provider } from "key-did-provider-ed25519";
+// import { DID } from "dids";
+// import KeyResolver from "key-did-resolver";
+// import { randomBytes } from "@stablelib/random";
+
+// export const generateDIDAndStoreData = async (userInfo) => {
+//   try {
+//     // Generate a new key pair for the DID
+//     const seed = randomBytes(32);
+//     const provider = new Ed25519Provider(seed);
+//     const did = new DID({ provider, resolver: KeyResolver.getResolver() });
+//     await did.authenticate();
+
+//     // Create the DID ID
+//     const didId = did.id;
+
+//     // Initialize Helia IPFS client
+//     const helia = await createHelia();
+//     const fs = unixfs(helia);
+
+//     // Prepare user info for IPFS
+//     const { firstName, lastName, passportNo, birthday, docFile } = userInfo;
+
+//     // Convert the file to a buffer
+//     const arrayBuffer = await docFile.arrayBuffer();
+//     const buffer = Buffer.from(arrayBuffer);
+
+//     // Upload the document to IPFS
+//     const docResult = await fs.addBytes(buffer);
+//     const docHash = docResult.cid.toString();
+
+//     // Store user info with document hash
+//     const userInfoWithDoc = {
+//       firstName,
+//       lastName,
+//       passportNo,
+//       birthday,
+//       docHash,
+//     };
+
+//     // Upload user info to IPFS
+//     const userInfoBuffer = Buffer.from(JSON.stringify(userInfoWithDoc));
+//     const userInfoResult = await fs.addBytes(userInfoBuffer);
+//     const ipfsUserInfoHash = userInfoResult.cid.toString();
+
+//     return { didId, ipfsUserInfoHash };
+//   } catch (error) {
+//     console.error("Error generating DID and storing data on IPFS:", error);
+//     throw new Error("Failed to generate DID and store data.");
+//   }
+// };
+
 import { createHelia } from "helia";
-import { strings } from "@helia/strings";
-// import { filesFromBlob } from "@helia/files";
+import { json } from "@helia/json";
 import { unixfs } from "@helia/unixfs";
+// Import FileSaver.js for browser file downloads
+// import { saveAs } from "file-saver";
 
-interface UserInfo {
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  birthday: string;
-  docFile: File | null;
-}
-
-export const generateDIDAndStoreData = async (userInfo: UserInfo) => {
-  console.log(userInfo);
-  console.log("Starting the DID and IPFS storage process");
-
-  // Step 1: Generate seed and create provider
-  console.log("Generating seed and creating Ed25519 provider");
-  const seed = new Uint8Array(32); // Replace with secure entropy
-  const provider = new Ed25519Provider(seed);
-
-  // Step 2: Create and authenticate DID
-  console.log("Creating and authenticating DID");
-  const did = new DID({ provider, resolver: KeyResolver.getResolver() });
-
-  await did.authenticate();
-  const didId = did.id;
-  console.log(`DID authenticated successfully: ${didId}`);
-
-  // Step 3: Initialize Helia and create strings and files instances
-  console.log("Initializing Helia");
-  const helia = await createHelia();
-  const s = strings(helia);
-  // const f = filesFromBlob(helia);
-  const f = unixfs(helia);
-
-  console.log("Helia initialized successfully");
-
-  // Step 4: Convert userInfo to JSON string and store in IPFS
-  console.log("Converting userInfo to JSON string and storing in IPFS");
-  const userInfoString = JSON.stringify({
-    firstName: userInfo.firstName,
-    lastName: userInfo.lastName,
-    phoneNumber: userInfo.phoneNumber,
-    birthday: userInfo.birthday,
+// Function to read a file as an ArrayBuffer
+const readFileAsArrayBuffer = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
   });
-  const ipfsUserInfoHash = await s.add(userInfoString);
-  console.log(`User info stored in IPFS with hash: ${ipfsUserInfoHash}`);
+};
 
-  // Step 5: Convert file to IPFS-compatible format and store in IPFS
-  let ipfsDocFileHash = null;
-  if (userInfo.docFile) {
-    console.log(
-      "Converting document file to IPFS-compatible format and storing in IPFS"
-    );
-    const fileBlob = new Blob([userInfo.docFile], {
-      type: userInfo.docFile.type,
-    });
-    // const fileResult = await f.add({ content: fileBlob });
-    // create an empty dir and a file, then add the file to the dir
-    const emptyDirCid = await f.addDirectory();
-    const fileCid = await f.addBytes(fileBlob);
-    const updateDirCid = await f.cp(fileCid, emptyDirCid, "foo.txt");
+// Function to store userInfo JSON on IPFS and return the CID
+const storeUserInfo = async (userInfo, jsonClient) => {
+  try {
+    const userInfoCid = await jsonClient.add(userInfo);
+    console.log("Stored userInfo CID:", userInfoCid.toString());
+    return userInfoCid;
+  } catch (error) {
+    console.error("Error storing userInfo on IPFS:", error);
+    throw new Error("Failed to store userInfo on IPFS.");
+  }
+};
 
-    for await (const entry of f.addAll([
+// Function to store docFile on IPFS and return the CID
+const storeDocFile = async (docFile, fsClient) => {
+  if (!docFile) return null;
+
+  try {
+    const arrayBuffer = await readFileAsArrayBuffer(docFile);
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    const entries = fsClient.addAll([
       {
-        path: "foo.txt",
-        content: fileBlob,
+        path: docFile.name,
+        content: uint8Array,
       },
-    ])) {
-      console.info(entry);
+    ]);
+
+    let fileHash = null;
+    for await (const entry of entries) {
+      fileHash = entry.cid.toString();
+      console.log("Stored document file CID:", fileHash);
     }
 
-    // const fileResult = await f.add({ content: fileBlob });
-    // ipfsDocFileHash = fileResult.cid.toString();
-    // console.log(`Document file stored in IPFS with hash: ${ipfsDocFileHash}`);
-    console.log({ didId, ipfsUserInfoHash, fileCid });
+    return fileHash;
+  } catch (error) {
+    console.error("Error storing document file on IPFS:", error);
+    throw new Error("Failed to store document file on IPFS.");
   }
+};
 
-  // Step 6: Set isRegistered to false for newly generated DID
-  console.log("Setting isRegistered to false for newly generated DID");
-  const isRegistered = false;
+// Function to retrieve userInfo from IPFS using its CID
+const retrieveUserInfo = async (userInfoCid, jsonClient) => {
+  try {
+    const retrievedUserInfo = await jsonClient.get(userInfoCid);
+    console.log("Retrieved userInfo:", retrievedUserInfo);
+    return retrievedUserInfo;
+  } catch (error) {
+    console.error("Error retrieving userInfo from IPFS:", error);
+    throw new Error("Failed to retrieve userInfo from IPFS.");
+  }
+};
 
-  console.log("DID and IPFS storage process completed");
-  // console.log({ didId, ipfsUserInfoHash, ipfsDocFileHash, isRegistered });
-  // return { didId, ipfsUserInfoHash, ipfsDocFileHash, isRegistered };
-  return { didId, ipfsUserInfoHash, isRegistered };
+// Function to retrieve docFile from IPFS using its CID
+const retrieveDocFile = async (fileHash, fsClient) => {
+  if (!fileHash) return null;
+
+  try {
+    const fileData = [];
+    for await (const chunk of fsClient.cat(fileHash)) {
+      fileData.push(...chunk);
+      console.log("chunk", chunk);
+    }
+    const retrievedFile = new Uint8Array(fileData);
+    console.log("Retrieved docFile:", retrievedFile);
+    return retrievedFile;
+  } catch (error) {
+    console.error("Error retrieving document file from IPFS:", error);
+    throw new Error("Failed to retrieve document file from IPFS.");
+  }
+};
+
+// Function to download and save the docFile in the browser
+// const downloadAndSaveDocFile = async (fileHash, fsClient) => {
+//   const retrievedFile = await retrieveDocFile(fileHash, fsClient);
+//   if (retrievedFile) {
+//     // Create a Blob from the Uint8Array
+//     const blob = new Blob([retrievedFile], {
+//       type: "application/octet-stream",
+//     });
+//     // Use FileSaver.js to save the file
+//     saveAs(blob, "retrievedFile");
+//   }
+// };
+
+// Main function to generate DID, store data, and retrieve/verify it
+export const generateDIDAndStoreData = async (userInfo) => {
+  const { firstName, lastName, passportNo, birthday, docFile } = userInfo;
+
+  try {
+    console.info(userInfo);
+
+    // Initialize Helia and its components
+    const helia = await createHelia();
+    const fsClient = unixfs(helia);
+    const jsonClient = json(helia);
+
+    // Store userInfo JSON on IPFS
+    const userInfoCid = await storeUserInfo(userInfo, jsonClient);
+
+    // Store document file on IPFS (if provided)
+    const fileHash = await storeDocFile(docFile, fsClient);
+
+    // Retrieve the userInfo from IPFS using its CID
+    const retrievedUserInfo = await retrieveUserInfo(userInfoCid, jsonClient);
+
+    // Retrieve the docFile from IPFS using its CID
+    const retrievedFile = await retrieveDocFile(fileHash, fsClient);
+
+    // Verify retrieved data (example: log and compare)
+    const userInfoMatch =
+      JSON.stringify(retrievedUserInfo) === JSON.stringify(userInfo);
+    console.log("Retrieved and Original userInfo match:", userInfoMatch);
+
+    // Download and save the document file
+    // if (fileHash) {
+    //   await downloadAndSaveDocFile(fileHash, fsClient);
+    // }
+
+    return {
+      userInfoCid: userInfoCid.toString(),
+      fileHash,
+      userInfoMatch,
+      retrievedFile,
+    };
+  } catch (error) {
+    console.error("Error generating DID and storing data on IPFS:", error);
+    throw new Error("Failed to generate DID and store data.");
+  }
 };
