@@ -6,7 +6,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Dayjs } from "dayjs";
 
-import UserContract from "../../build/contracts/UserContract.json";
+import UserContract from "~/build/contracts/UserContract.json"; // Update the contract import
+import { generateDIDAndStoreData } from "@/services";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
 
@@ -15,6 +16,7 @@ interface UserInfo {
   lastName: string;
   passportNo: string;
   birthday: Dayjs | null;
+  docFile?: File | null;
 }
 
 const Register: React.FC = () => {
@@ -23,29 +25,23 @@ const Register: React.FC = () => {
     lastName: "",
     passportNo: "",
     birthday: null,
+    docFile: null,
   });
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [contract, setContract] = useState<any>(null);
   const [account, setAccount] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   const [fileConfirmation, setFileConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const init = async () => {
       try {
-        // Initialize Web3
         const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
-
-        // Fetch accounts
         const accounts = await web3.eth.getAccounts();
-        console.log(1, accounts);
-        setAccount(accounts[0]); // Assuming you want to use the first account by default
-        // Fetch network ID
+        setAccount(accounts[0]);
+
         const networkId = await web3.eth.net.getId();
         const deployedNetwork = UserContract.networks[networkId];
-
-        // Initialize contract instance
         const instance = new web3.eth.Contract(
           UserContract.abi,
           deployedNetwork && deployedNetwork.address
@@ -67,25 +63,8 @@ const Register: React.FC = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      setFile(files[0]);
-    }
-  };
-
-  const handleFileUpload = async () => {
-    if (!file) {
-      setFileConfirmation("Please select a file to upload.");
-      return;
-    }
-
-    try {
-      // Implement your file upload logic here
-      // Example: Upload 'file' using an API call
-      // Replace this with your actual upload logic
-      console.log("Uploading file:", file.name);
-      setFileConfirmation(`File '${file.name}' uploaded successfully.`);
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      setFileConfirmation(`Error uploading file: ${error.message}`);
+      setUserInfo({ ...userInfo, docFile: files[0] });
+      setFileConfirmation(`Selected file: ${files[0].name}`);
     }
   };
 
@@ -97,35 +76,50 @@ const Register: React.FC = () => {
       return;
     }
 
-    const { firstName, lastName, birthday, passportNo } = userInfo;
-    const birthdayString = birthday ? birthday.format("YYYY-MM-DD") : "";
+    const { firstName, lastName, birthday, passportNo, docFile } = userInfo;
+    const birthdayString = birthday ? birthday.unix() : 0;
 
-    if (!firstName || !lastName || !birthdayString || !passportNo) {
-      setConfirmation("Please fill in all required fields.");
+    if (!firstName || !lastName || !birthdayString || !passportNo || !docFile) {
+      setConfirmation(
+        "Please fill in all required fields and upload the document."
+      );
       return;
     }
 
     setLoading(true);
 
     try {
+      // Generate DID and store user info in IPFS
+      const { didId, ipfsUserInfoHash, isRegistered } =
+        await generateDIDAndStoreData({
+          firstName,
+          lastName,
+          phoneNumber: passportNo,
+          birthday: birthday.format("YYYY-MM-DD"),
+          docFile,
+        });
+      console.log(555, didId, ipfsUserInfoHash, isRegistered);
+      // Register user on the blockchain
       await contract.methods
-        .registerUser(firstName, lastName, birthdayString, passportNo)
+        .registerUser(
+          firstName,
+          lastName,
+          birthdayString,
+          passportNo,
+          ipfsUserInfoHash // Use the IPFS hash from the generated data
+        )
         .send({ from: account, gas: 3000000 })
-        .on("receipt", (receipt) => {
-          console.log("Transaction receipt:", receipt); // Log the transaction receipt
+        .on("receipt", (receipt: any) => {
+          console.log("Transaction receipt:", receipt);
+          setConfirmation("User registered successfully.");
         })
-        .catch((error) => {
+        .catch((error: any) => {
           console.error("Error registering user:", error);
           setConfirmation(`Error registering user: ${error.message}`);
-        })
-        .finally(() => {
-          setLoading(false);
         });
-
-      setConfirmation("User registered successfully.");
     } catch (error) {
-      console.error("Error registering user: ", error);
-      setConfirmation(`Error registering user: ${error.message}`);
+      console.error("Error registering user2: ", error);
+      setConfirmation(`Error registering user2: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -194,7 +188,10 @@ const Register: React.FC = () => {
         />
 
         <Box sx={{ mt: 4 }}>
-          <Typography color={`${file ? "black" : "red"}`} variant='h5'>
+          <Typography
+            color={`${userInfo.docFile ? "black" : "red"}`}
+            variant='h5'
+          >
             Upload Documents
           </Typography>
           <input
@@ -205,16 +202,8 @@ const Register: React.FC = () => {
             required
             disabled={loading}
           />
-          {/* <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                onClick={handleFileUpload}
-              >
-                Upload File
-              </Button> */}
           {fileConfirmation && (
-            <Alert severity='error' sx={{ mt: 2 }}>
+            <Alert severity='info' sx={{ mt: 2 }}>
               {fileConfirmation}
             </Alert>
           )}
@@ -230,7 +219,7 @@ const Register: React.FC = () => {
         </Button>
       </Box>
       {confirmation && (
-        <Alert severity='error' sx={{ mt: 2 }}>
+        <Alert severity='info' sx={{ mt: 2 }}>
           {confirmation}
         </Alert>
       )}
