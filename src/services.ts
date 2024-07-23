@@ -56,6 +56,10 @@
 import { createHelia } from "helia";
 import { json } from "@helia/json";
 import { unixfs } from "@helia/unixfs";
+import { Ed25519Provider } from "key-did-provider-ed25519";
+import { DID } from "dids";
+import KeyResolver from "key-did-resolver";
+import { randomBytes } from "@stablelib/random";
 // Import FileSaver.js for browser file downloads
 // import { saveAs } from "file-saver";
 
@@ -67,6 +71,24 @@ const readFileAsArrayBuffer = (file) => {
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
+};
+
+// Function to generate DID
+const didGenerator = async () => {
+  try {
+    // Generate a new key pair for the DID
+    const seed = randomBytes(32);
+    const provider = new Ed25519Provider(seed);
+    const did = new DID({ provider, resolver: KeyResolver.getResolver() });
+    await did.authenticate();
+
+    // Create the DID ID
+    const didId = did.id;
+    return didId;
+  } catch (error) {
+    console.error("Error generating DID and storing data on IPFS:", error);
+    throw new Error("Failed to generate DID and store data.");
+  }
 };
 
 // Function to store userInfo JSON on IPFS and return the CID
@@ -153,6 +175,31 @@ const retrieveDocFile = async (fileHash, fsClient) => {
 //   }
 // };
 
+// Function to store the DID and IPFS CIDs in the smart contract
+// const storeDIDInSmartContract = async (did, ipfsUserInfoHash, docHash) => {
+//   try {
+//     // Connect to the Ethereum network
+//     const provider = new ethers.providers.Web3Provider(window.ethereum);
+//     const signer = provider.getSigner();
+
+//     // Get the contract instance
+//     const contract = new ethers.Contract(
+//       DID_REGISTRY_CONTRACT_ADDRESS,
+//       DID_REGISTRY_ABI,
+//       signer
+//     );
+
+//     // Call the smart contract function to store the data
+//     const tx = await contract.storeUserInfo(did, ipfsUserInfoHash, docHash);
+//     await tx.wait();
+
+//     console.log("Stored DID and IPFS CIDs in the smart contract");
+//   } catch (error) {
+//     console.error("Error storing DID in smart contract:", error);
+//     throw new Error("Failed to store DID in smart contract.");
+//   }
+// };
+
 // Main function to generate DID, store data, and retrieve/verify it
 export const generateDIDAndStoreData = async (userInfo) => {
   const { firstName, lastName, passportNo, birthday, docFile } = userInfo;
@@ -165,8 +212,13 @@ export const generateDIDAndStoreData = async (userInfo) => {
     const fsClient = unixfs(helia);
     const jsonClient = json(helia);
 
+    const didId = await didGenerator();
+    console.log("didId", didId);
     // Store userInfo JSON on IPFS
-    const userInfoCid = await storeUserInfo(userInfo, jsonClient);
+    const userInfoCid = await storeUserInfo(
+      { ...userInfo, did: didId },
+      jsonClient
+    );
 
     // Store document file on IPFS (if provided)
     const fileHash = await storeDocFile(docFile, fsClient);
@@ -187,11 +239,15 @@ export const generateDIDAndStoreData = async (userInfo) => {
     //   await downloadAndSaveDocFile(fileHash, fsClient);
     // }
 
+    // Store DID and IPFS CIDs in the smart contract
+    // await storeDIDInSmartContract(didId, userInfoCid.toString(), fileHash);
+
     return {
       userInfoCid: userInfoCid.toString(),
       fileHash,
       userInfoMatch,
       retrievedFile,
+      didId,
     };
   } catch (error) {
     console.error("Error generating DID and storing data on IPFS:", error);

@@ -1,5 +1,5 @@
-const UserContract = artifacts.require("UserContract");
+const UserRegistration = artifacts.require("UserRegistration");
 
 module.exports = function (deployer) {
-  deployer.deploy(UserContract);
+  deployer.deploy(UserRegistration);
 };

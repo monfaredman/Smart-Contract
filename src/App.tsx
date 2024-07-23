@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   RouterProvider,
   createBrowserRouter,
@@ -10,34 +10,59 @@ import UserRegister from "./pages/register-user";
 import { fakeAuthProvider } from "./middleware/auth";
 import "./App.css";
 
+// Initialize the auth provider
+async function initializeAuthProvider() {
+  await fakeAuthProvider.init();
+}
+
+// Route loaders
+async function userLoader() {
+  await initializeAuthProvider();
+
+  if (fakeAuthProvider.isAuthenticated) {
+    return null; // User is authenticated, proceed to UserDashboard
+  }
+  return redirect("/register"); // Redirect to UserRegister if not authenticated
+}
+
+async function registerLoader() {
+  await initializeAuthProvider();
+
+  if (fakeAuthProvider.isAuthenticated) {
+    return redirect("/"); // Redirect to UserDashboard if already authenticated
+  }
+  return null; // Proceed to UserRegister if not authenticated
+}
+
+// Create the router with route configuration
 const router = createBrowserRouter([
   {
-    id: "root",
     path: "/",
-    Component: Layout,
+    element: <Layout />,
     children: [
       {
         index: true,
         loader: userLoader,
-        Component: UserDashboard,
+        element: <UserDashboard />,
       },
       {
         path: "register",
-        Component: UserRegister,
+        loader: registerLoader,
+        element: <UserRegister />,
       },
     ],
   },
 ]);
 
 export default function App() {
+  useEffect(() => {
+    // Initialize auth provider when the app starts
+    initializeAuthProvider().then(() => {
+      console.log("Auth provider initialized:", fakeAuthProvider);
+    });
+  }, []);
+
   return (
     <RouterProvider router={router} fallbackElement={<p>Initial Load...</p>} />
   );
-}
-
-async function userLoader() {
-  if (fakeAuthProvider.isAuthenticated) {
-    return redirect("/");
-  }
-  return redirect("/register");
 }

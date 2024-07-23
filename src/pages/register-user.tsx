@@ -5,9 +5,10 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Dayjs } from "dayjs";
-
-import UserContract from "~/build/contracts/UserContract.json"; // Update the contract import
+import { useNavigate } from "react-router-dom";
+import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 import { generateDIDAndStoreData } from "@/services";
+import { fakeAuthProvider } from "@/middleware/auth";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
 
@@ -33,6 +34,8 @@ const Register: React.FC = () => {
   const [fileConfirmation, setFileConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -42,11 +45,15 @@ const Register: React.FC = () => {
 
         const networkId = await web3.eth.net.getId();
         const deployedNetwork = UserContract.networks[networkId];
-        const instance = new web3.eth.Contract(
-          UserContract.abi,
-          deployedNetwork && deployedNetwork.address
-        );
-        setContract(instance);
+        if (deployedNetwork) {
+          const instance = new web3.eth.Contract(
+            UserContract.abi,
+            deployedNetwork.address
+          );
+          setContract(instance);
+        } else {
+          console.error("Contract not deployed on the detected network.");
+        }
       } catch (error) {
         console.error("Error initializing web3: ", error);
       }
@@ -77,9 +84,8 @@ const Register: React.FC = () => {
     }
 
     const { firstName, lastName, birthday, passportNo, docFile } = userInfo;
-    const birthdayString = birthday ? birthday.unix() : 0;
 
-    if (!firstName || !lastName || !birthdayString || !passportNo || !docFile) {
+    if (!firstName || !lastName || !birthday || !passportNo || !docFile) {
       setConfirmation(
         "Please fill in all required fields and upload the document."
       );
@@ -90,35 +96,58 @@ const Register: React.FC = () => {
 
     try {
       // Generate DID and store user info in IPFS
-      const { cid } = await generateDIDAndStoreData({
-        firstName,
-        lastName,
-        phoneNumber: passportNo,
-        birthday: birthday.format("YYYY-MM-DD"),
-        docFile,
-      });
-      console.log(555, cid);
-      // Register user on the blockchain
-      await contract.methods
-        .registerUser(
+      const { userInfoCid, fileHash, userInfoMatch, retrievedFile, didId } =
+        await generateDIDAndStoreData({
           firstName,
           lastName,
-          birthdayString,
-          passportNo
-          // ipfsUserInfoHash // Use the IPFS hash from the generated data
-        )
+          phoneNumber: passportNo,
+          birthday: birthday.format("YYYY-MM-DD"),
+          docFile,
+        });
+      console.log("DID and IPFS data:", {
+        userInfoCid,
+        fileHash,
+        userInfoMatch,
+        retrievedFile,
+        didId,
+      });
+
+      // Register user on the blockchain
+      const didIdStr = String(didId);
+      const userInfoCidStr = String(userInfoCid);
+      const fileHashStr = String(fileHash);
+      await contract.methods
+        .registerUser(didIdStr, userInfoCidStr, fileHashStr)
         .send({ from: account, gas: 3000000 })
-        .on("receipt", (receipt: any) => {
-          console.log("Transaction receipt:", receipt);
-          setConfirmation("User registered successfully.");
+        .then(async () => {
+          // Store user data to local storage
+          const userData = {
+            firstName,
+            lastName,
+            passportNo,
+            birthday: birthday.format("YYYY-MM-DD"),
+            docFileName: docFile.name,
+            didId: didIdStr,
+            userInfoCid: userInfoCidStr,
+            fileHash: fileHashStr,
+          };
+          localStorage.setItem("userData", JSON.stringify(userData));
+
+          // Sign in the user
+          await fakeAuthProvider.signin(firstName);
+
+          setConfirmation(
+            "User registered successfully and data stored locally."
+          );
+          navigate("/");
         })
         .catch((error: any) => {
           console.error("Error registering user:", error);
           setConfirmation(`Error registering user: ${error.message}`);
         });
     } catch (error) {
-      console.error("Error registering user2: ", error);
-      setConfirmation(`Error registering user2: ${error.message}`);
+      console.error("Error registering user: ", error);
+      setConfirmation(`Error registering user: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -132,7 +161,7 @@ const Register: React.FC = () => {
         gutterBottom
         sx={{ marginTop: "2rem" }}
       >
-        Register with DID and IPFS
+        Register user to network
       </Typography>
       <Box component='form' onSubmit={handleRegister} sx={{ mt: 2 }}>
         <TextField
