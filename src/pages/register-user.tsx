@@ -245,6 +245,15 @@ const Register: React.FC = () => {
         >
           {loading ? "Registering..." : "Register"}
         </Button>
+        <Button
+          variant='outlined'
+          color='primary'
+          fullWidth
+          style={{ marginTop: "1rem" }}
+          onClick={() => navigate("/loginAdmin")}
+        >
+          Login Admin
+        </Button>
       </Box>
       {confirmation && (
         <Alert severity='info' sx={{ mt: 2 }}>

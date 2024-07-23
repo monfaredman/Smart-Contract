@@ -7,6 +7,8 @@ import {
 import Layout from "./layout/Home";
 import UserDashboard from "./pages/dashboard";
 import UserRegister from "./pages/register-user";
+import Admin from "./pages/admin";
+import LoginAdmin from "./pages/loginAdmin";
 import { fakeAuthProvider } from "./middleware/auth";
 import "./App.css";
 
@@ -20,6 +22,15 @@ async function userLoader() {
   await initializeAuthProvider();
 
   if (fakeAuthProvider.isAuthenticated) {
+    return null; // User is authenticated, proceed to UserDashboard
+  }
+  return redirect("/register"); // Redirect to UserRegister if not authenticated
+}
+
+async function adminLoader() {
+  await initializeAuthProvider();
+
+  if (fakeAuthProvider.isAdmin) {
     return null; // User is authenticated, proceed to UserDashboard
   }
   return redirect("/register"); // Redirect to UserRegister if not authenticated
@@ -49,6 +60,15 @@ const router = createBrowserRouter([
         path: "register",
         loader: registerLoader,
         element: <UserRegister />,
+      },
+      {
+        path: "admin",
+        loader: adminLoader,
+        element: <Admin />,
+      },
+      {
+        path: "loginAdmin",
+        element: <LoginAdmin />,
       },
     ],
   },

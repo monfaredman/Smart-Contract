@@ -83,6 +83,7 @@ const Header = () => {
   };
 
   const connectToMetaMask = async () => {
+    console.log(1, accounts);
     setIsLoading(true);
     if (window.ethereum) {
       try {
@@ -92,7 +93,8 @@ const Header = () => {
         });
         if (accounts.length > 0) {
           const account = accounts[0];
-          setAccounts(account);
+          setAccounts(accounts); // Ensure accounts is an array
+          setSelectedAccount(account);
           setIsConnected(true);
 
           // Get balance
@@ -102,8 +104,9 @@ const Header = () => {
 
           window.ethereum.on("accountsChanged", async (accounts) => {
             if (accounts.length > 0) {
+              setAccounts(accounts);
               const account = accounts[0];
-              setAccount(account);
+              setSelectedAccount(account);
 
               // Update balance on account change
               const balanceWei = await web3.eth.getBalance(account);
@@ -111,7 +114,8 @@ const Header = () => {
               setBalance(balanceEth);
             } else {
               // Handle account disconnection
-              setAccount(null);
+              setAccounts([]);
+              setSelectedAccount(null);
               setIsConnected(false);
               setBalance(null);
             }
@@ -130,9 +134,11 @@ const Header = () => {
 
   const logout = () => {
     // Simulate disconnection by resetting the states
-    setAccounts(null);
+    setAccounts([]);
+    setSelectedAccount(null);
     setIsConnected(false);
     setBalance(null);
+    console.log(accounts);
   };
 
   return (
@@ -177,11 +183,9 @@ const Header = () => {
                 onClose={handleMenuClose}
               >
                 <MenuItem>
-                  {/* <p style={{ color: "blue" }}>Account: {accounts[0]}</p> */}
                   <h2>Connected Accounts:</h2>
                   <ul>
-                    {accounts &&
-                      accounts.length > 0 &&
+                    {Array.isArray(accounts) &&
                       accounts.map((account, index) => (
                         <li style={{ listStyle: "none" }} key={index}>
                           <span
@@ -219,7 +223,7 @@ const Header = () => {
                     handleMenuClose();
                   }}
                 >
-                  Logout
+                  Disconnect Wallet
                 </MenuItem>
               </Menu>
             </>

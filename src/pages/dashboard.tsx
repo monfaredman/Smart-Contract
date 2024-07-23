@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import Web3 from "web3";
 import { useNavigate } from "react-router-dom";
+import { fakeAuthProvider } from "@/middleware/auth";
 import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
@@ -71,47 +72,55 @@ const Dashboard: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      if (contract && userDID && account) {
-        console.log(55, userDID, account);
-        try {
-          console.log("Fetching transactions..."); // Debugging line
-          const events = await contract.getPastEvents("Deposit", {
-            // filter: { userDID }, // Using indexed parameter to filter by userDID
-            // fromBlock: 0, // or the block number you want to start searching from
-            // toBlock: "latest",
-          });
-          console.log("events", events);
+    fetchTransactions();
+  }, [contract, userDID]);
 
-          // Filter events by account
-          // const filteredEvents = events.filter((event) => {
-          //   return event.returnValues.userDID === userDID;
-          // });
+  const fetchTransactions = async () => {
+    if (contract && userDID && account) {
+      console.log(55, userDID, account);
+      try {
+        console.log("Fetching transactions..."); // Debugging line
+        const events = await contract.getPastEvents("Deposit", {
+          filter: { userDID: userDID },
+          fromBlock: 0, // You can specify the starting block number
+          toBlock: "latest", // Or the ending block number
+        });
+        console.log("events", events);
 
-          const parsedTransactions = events.map((event) => {
+        const parsedTransactions = await Promise.all(
+          events.map(async (event) => {
+            // Fetch the block details
+            const web3 = new Web3(
+              new Web3.providers.HttpProvider(GANACHE_RPC_URL)
+            );
+            // Ensure event.blockNumber is a number
+            const blockNumber = Number(event.blockNumber);
+
+            // Fetch the block details
+            const block = await web3.eth.getBlock(blockNumber);
+
+            // Convert block.timestamp to a number
+            const timestamp = Number(block.timestamp);
+            console.log("block", timestamp);
             return {
               type: event.event,
               amount: Web3.utils.fromWei(
                 event.returnValues.amount || "0",
                 "ether"
               ),
-              // timestamp: new Date(
-              //   event.returnValues.timestamp * 1000
-              // ).toISOString(),
+              timestamp: new Date(timestamp * 1000).toString(),
             };
-          });
-          console.log("parsedTransactions", parsedTransactions);
-          setTransactions(parsedTransactions);
-        } catch (error) {
-          console.error("Error fetching transactions: ", error);
-        }
-      } else {
-        console.log("Waiting for contract, userDID, and account to be set."); // Debugging line
+          })
+        );
+        console.log("parsedTransactions", parsedTransactions);
+        setTransactions(parsedTransactions);
+      } catch (error) {
+        console.error("Error fetching transactions: ", error);
       }
-    };
-
-    fetchTransactions();
-  }, [contract, userDID]);
+    } else {
+      console.log("Waiting for contract, userDID, and account to be set."); // Debugging line
+    }
+  };
 
   const handleDeposit = async () => {
     console.log(userDID, account, depositAmount);
@@ -131,12 +140,18 @@ const Dashboard: React.FC = () => {
         });
 
       setDepositAmount("");
+      fetchTransactions();
       // Optionally update transactions here
     } catch (error) {
       console.error("Error making deposit: ", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await fakeAuthProvider.signout();
+    navigate("/register"); // Navigate to login or registration page
   };
 
   return (
@@ -147,8 +162,8 @@ const Dashboard: React.FC = () => {
       <Button
         variant='contained'
         color='primary'
-        onClick={() => navigate("/register")}
         sx={{ mb: 2 }}
+        onClick={handleLogout}
       >
         Logout
       </Button>
