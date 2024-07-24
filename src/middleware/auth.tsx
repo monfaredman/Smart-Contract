@@ -38,10 +38,9 @@ export const fakeAuthProvider: AuthProvider = {
     this.isAuthenticated = true;
     this.username = username;
     this.isAdmin = false;
-    localStorage.clear();
-
     localStorage.setItem("isAuthenticated", "true");
     localStorage.setItem("username", username);
+    localStorage.setItem("isAdmin", "false");
   },
 
   async loginAdmin() {
@@ -51,6 +50,13 @@ export const fakeAuthProvider: AuthProvider = {
     this.username = null;
     this.isAdmin = true;
     localStorage.setItem("isAdmin", "true");
+  },
+  async logoutAdmin() {
+    await new Promise((r) => setTimeout(r, 500)); // fake delay
+    localStorage.clear();
+    this.isAuthenticated = false;
+    this.username = null;
+    this.isAdmin = false;
   },
 
   async signout() {

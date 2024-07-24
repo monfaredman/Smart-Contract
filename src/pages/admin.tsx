@@ -10,8 +10,11 @@ import {
   ListItem,
   Box,
   Grid,
-  Paper,
+  Tabs,
+  Tab,
 } from "@mui/material";
+import { toast } from "react-toastify";
+import { fakeAuthProvider } from "@/middleware/auth";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
 
@@ -19,10 +22,10 @@ const Admin = () => {
   const [web3, setWeb3] = useState(null);
   const [contract, setContract] = useState(null);
   const [accounts, setAccounts] = useState([]);
-  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
   const [registeredUsers, setRegisteredUsers] = useState([]);
   const [networkBalance, setNetworkBalance] = useState(0);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [tabIndex, setTabIndex] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -56,37 +59,26 @@ const Admin = () => {
     init();
   }, []);
 
-  useEffect(() => {
-    const adminLogin = async () => {
-      try {
-        await contract.methods
-          .adminLogin("admin", "password")
-          .send({ from: accounts[0] });
-        setAdminLoggedIn(true);
-      } catch (error) {
-        console.error("Admin login failed", error);
-      }
-    };
-    adminLogin();
-  }, [contract, accounts]);
-
   const adminLogout = async () => {
     try {
       await contract.methods.adminLogout().send({ from: accounts[0] });
-      setAdminLoggedIn(false);
+      await fakeAuthProvider.logoutAdmin();
     } catch (error) {
-      console.error("Admin logout failed", error);
+      toast.error(error.message);
     }
   };
 
   const fetchRegisteredUsers = async () => {
-    try {
-      const users = await contract.methods
-        .getAllRegisteredUsersDIDs()
-        .call({ from: accounts[0] });
-      setRegisteredUsers(users);
-    } catch (error) {
-      console.error("Error fetching registered users", error);
+    if (contract) {
+      try {
+        const users = await contract.methods
+          .getAllRegisteredUsersDIDs()
+          .call({ from: accounts[0] });
+        setRegisteredUsers(users);
+      } catch (error) {
+        toast.error(error.message);
+        console.log(2);
+      }
     }
   };
 
@@ -97,88 +89,102 @@ const Admin = () => {
         .call({ from: accounts[0] });
       setNetworkBalance(web3.utils.fromWei(balance, "ether"));
     } catch (error) {
-      console.error("Error fetching network balance", error);
+      toast.error(error.message);
+      console.log(1);
     }
   };
 
   const handleWithdraw = async () => {
     try {
+      fetchNetworkBalance();
+      if (withdrawAmount > networkBalance) {
+        toast.error("Insufficient inventory");
+        return;
+      }
       const amountWei = web3.utils.toWei(withdrawAmount, "ether");
       await contract.methods.withdraw(amountWei).send({ from: accounts[0] });
       setWithdrawAmount("");
       fetchNetworkBalance(); // Refresh balance after withdrawal
     } catch (error) {
-      console.error("Withdrawal failed", error);
+      toast.error(error.message);
     }
   };
+
+  const handleChangeTab = (event, newValue) => {
+    setTabIndex(newValue);
+  };
+
+  useEffect(() => {
+    if (tabIndex === 0) {
+      fetchRegisteredUsers();
+    } else if (tabIndex === 1) {
+      fetchNetworkBalance();
+    }
+  }, [tabIndex, contract]);
 
   return (
     <Container>
       <Box my={4}>
-        <Typography variant='h3' component='h1' gutterBottom>
-          Admin Dashboard
-        </Typography>
-        <Grid container spacing={2} justifyContent='center'>
-          <Grid item>
-            <Button variant='contained' color='secondary' onClick={adminLogout}>
-              Logout
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button
-              variant='contained'
-              color='primary'
-              onClick={fetchRegisteredUsers}
-            >
-              Show Registered Users
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button
-              variant='contained'
-              color='primary'
-              onClick={fetchNetworkBalance}
-            >
-              Show Network Balance
-            </Button>
-          </Grid>
-        </Grid>
-        <Box my={4}>
-          <Typography variant='h5' component='h2'>
-            Registered Users
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Typography variant='h3' component='h1' gutterBottom>
+            Admin Dashboard
           </Typography>
-          <List>
-            {registeredUsers.map((user, index) => (
-              <ListItem key={index}>{user}</ListItem>
-            ))}
-          </List>
-        </Box>
-        <Box my={4}>
-          <Typography variant='h5' component='h2'>
-            Network Balance: {networkBalance} ETH
-          </Typography>
-        </Box>
-        <Box my={4}>
-          <Typography variant='h5' component='h2'>
-            Withdraw Funds
-          </Typography>
-          <TextField
-            label='Amount in ETH'
-            value={withdrawAmount}
-            onChange={(e) => setWithdrawAmount(e.target.value)}
-            variant='outlined'
-            fullWidth
-            margin='normal'
-          />
           <Button
-            variant='contained'
-            color='primary'
-            onClick={handleWithdraw}
-            fullWidth
+            variant='outlined'
+            size='small'
+            color='error'
+            style={{ height: "3rem" }}
+            onClick={adminLogout}
           >
-            Withdraw
+            Logout
           </Button>
         </Box>
+        <Tabs value={tabIndex} onChange={handleChangeTab}>
+          <Tab label='Registered Users' />
+          <Tab label='Network Balance' />
+          <Tab label='Withdraw Funds' />
+        </Tabs>
+        {tabIndex === 0 && (
+          <Box my={4}>
+            <Typography variant='h5' component='h2'>
+              Registered Users
+            </Typography>
+            <List>
+              {registeredUsers.map((user, index) => (
+                <ListItem key={index}>{user}</ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+        {tabIndex === 1 && (
+          <Box my={4}>
+            <Typography variant='h5' component='h2'>
+              Network Balance: {networkBalance} ETH
+            </Typography>
+          </Box>
+        )}
+        {tabIndex === 2 && (
+          <Box my={4}>
+            <Typography variant='h5' component='h2'>
+              Withdraw Funds
+            </Typography>
+            <TextField
+              label='Amount in ETH'
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)}
+              variant='outlined'
+              fullWidth
+              margin='normal'
+            />
+            <Button
+              variant='contained'
+              color='primary'
+              onClick={handleWithdraw}
+            >
+              Withdraw
+            </Button>
+          </Box>
+        )}
       </Box>
     </Container>
   );

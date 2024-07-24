@@ -10,6 +10,7 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import { LoadingButton } from "@mui/lab";
 import Web3 from "web3";
+import { toast } from "react-toastify";
 
 const Header = () => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -62,11 +63,11 @@ const Header = () => {
             });
           }
         } catch (error) {
-          console.error("Error initializing web3: ", error);
+          toast.error(error.message);
         }
       } else {
         setIsMetaMaskInstalled(false);
-        console.error("MetaMask is not installed");
+        toast.error("MetaMask is not installed");
       }
       setIsLoading(false);
     };
@@ -122,7 +123,7 @@ const Header = () => {
           });
         }
       } catch (error) {
-        console.error("Error connecting to MetaMask: ", error);
+        toast.error(error.message);
       }
     }
     setIsLoading(false);
@@ -145,7 +146,16 @@ const Header = () => {
     <AppBar position='static'>
       <Toolbar>
         {/* Site Logo */}
-        <Typography variant='h6' component='div' sx={{ flexGrow: 1 }}>
+        <Typography
+          variant='h4'
+          component='div'
+          sx={{
+            flexGrow: 1,
+            color: "#fff",
+            fontWeight: "bold",
+            letterSpacing: 2,
+          }}
+        >
           DApp
         </Typography>
         {isLoading ? (
@@ -164,7 +174,9 @@ const Header = () => {
                 onClick={handleMenuOpen}
                 sx={{ ml: 2 }}
               >
-                <Avatar>{/* <AccountCircle /> */}</Avatar>
+                <Avatar sx={{ width: "4rem", height: "4rem" }}>
+                  {selectedAccount && selectedAccount.slice(1, 5)}...
+                </Avatar>
               </IconButton>
               {/* User Menu */}
               <Menu

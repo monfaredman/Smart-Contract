@@ -75,13 +75,6 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
-  useEffect(() => {
-    // Initialize auth provider when the app starts
-    initializeAuthProvider().then(() => {
-      console.log("Auth provider initialized:", fakeAuthProvider);
-    });
-  }, []);
-
   return (
     <RouterProvider router={router} fallbackElement={<p>Initial Load...</p>} />
   );

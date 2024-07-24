@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 import { generateDIDAndStoreData } from "@/services";
 import { fakeAuthProvider } from "@/middleware/auth";
+import { toast } from "react-toastify";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
 
@@ -28,7 +29,6 @@ const Register: React.FC = () => {
     birthday: null,
     docFile: null,
   });
-  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [contract, setContract] = useState<any>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [fileConfirmation, setFileConfirmation] = useState<string | null>(null);
@@ -52,10 +52,10 @@ const Register: React.FC = () => {
           );
           setContract(instance);
         } else {
-          console.error("Contract not deployed on the detected network.");
+          toast.error("Contract not deployed on the detected network.");
         }
       } catch (error) {
-        console.error("Error initializing web3: ", error);
+        toast.error(error.message);
       }
     };
 
@@ -67,28 +67,41 @@ const Register: React.FC = () => {
       setUserInfo({ ...userInfo, [prop]: event.target.value });
     };
 
+  // const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const files = event.target.files;
+  //   if (files && files.length > 0) {
+  //     setUserInfo({ ...userInfo, docFile: files[0] });
+  //     setFileConfirmation(`Selected file: ${files[0].name}`);
+  //   }
+  // };
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
-      setUserInfo({ ...userInfo, docFile: files[0] });
-      setFileConfirmation(`Selected file: ${files[0].name}`);
+      if (files[0]?.type !== "application/pdf") {
+        toast.error("Invalid file type. Only PDF files are allowed.");
+        setFileConfirmation(null);
+      } else {
+        setUserInfo({ ...userInfo, docFile: files[0] });
+        setFileConfirmation(`Selected file: ${files.name}`);
+        toast.success("File selected successfully.");
+      }
     }
   };
-
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!contract) {
-      console.error("Contract instance not initialized.");
+      toast.error("Contract instance not initialized.");
       return;
     }
 
     const { firstName, lastName, birthday, passportNo, docFile } = userInfo;
 
     if (!firstName || !lastName || !birthday || !passportNo || !docFile) {
-      setConfirmation(
+      toast.error(
         "Please fill in all required fields and upload the document."
       );
+
       return;
     }
 
@@ -136,18 +149,16 @@ const Register: React.FC = () => {
           // Sign in the user
           await fakeAuthProvider.signin(firstName);
 
-          setConfirmation(
+          toast.success(
             "User registered successfully and data stored locally."
           );
           navigate("/");
         })
         .catch((error: any) => {
-          console.error("Error registering user:", error);
-          setConfirmation(`Error registering user: ${error.message}`);
+          toast.error(error.message);
         });
     } catch (error) {
-      console.error("Error registering user: ", error);
-      setConfirmation(`Error registering user: ${error.message}`);
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -224,7 +235,7 @@ const Register: React.FC = () => {
           </Typography>
           <input
             type='file'
-            accept='.pdf,.doc,.docx'
+            accept='.pdf'
             onChange={handleFileChange}
             style={{ marginBottom: "1rem" }}
             required
@@ -243,7 +254,7 @@ const Register: React.FC = () => {
           fullWidth
           disabled={loading}
         >
-          {loading ? "Registering..." : "Register"}
+          {loading ? "Registering..." : "Register User"}
         </Button>
         <Button
           variant='outlined'
@@ -255,11 +266,6 @@ const Register: React.FC = () => {
           Login Admin
         </Button>
       </Box>
-      {confirmation && (
-        <Alert severity='info' sx={{ mt: 2 }}>
-          {confirmation}
-        </Alert>
-      )}
     </>
   );
 };
