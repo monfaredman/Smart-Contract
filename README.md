@@ -115,15 +115,15 @@ cd smart-contract-react-dapp`
 
 `npm install`
 
-### 4.Install Ganache Ethereum and add Project to Ganache GUI
+### 3.Install Ganache Ethereum and add Project to Ganache GUI
 
-### 5.Compile and Deploy Smart Contract
+### 4.Compile and Deploy Smart Contract
 
 Using Truffle:
 `truffle compile
 truffle migrate`
 
-### 4.Start the React App
+### 5.Start the React App
 
 `npm start`
 
