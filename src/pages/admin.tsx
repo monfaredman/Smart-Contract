@@ -6,8 +6,6 @@ import {
   Typography,
   Button,
   TextField,
-  List,
-  ListItem,
   Box,
   Tabs,
   Tab,
@@ -25,23 +23,33 @@ import {
 } from "@mui/material";
 import { toast } from "react-toastify";
 import { fakeAuthProvider } from "@/middleware/auth";
-import { retrieveUserInfo, retrieveDocFile } from "@/services";
+import { retrieveUserInfo, retrieveDocFile } from "@/services/services";
 import { useNavigate } from "react-router-dom";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
 
-const Admin = () => {
-  const [web3, setWeb3] = useState(null);
-  const [contract, setContract] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [registeredUsers, setRegisteredUsers] = useState([]);
-  const [networkBalance, setNetworkBalance] = useState(0);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [tabIndex, setTabIndex] = useState(0);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [retrievedFile, setRetrievedFile] = useState(null);
-  const [userDetails, setUserDetails] = useState(null);
+interface UserInfo {
+  depositAmount: number;
+  firstName: string;
+  lastName: string;
+  passportNo: string;
+  birthday: string;
+  ipfsUserInfoHash?: string;
+  docFileIPFSHash?: string;
+}
+
+const Admin: React.FC = () => {
+  const [web3, setWeb3] = useState<Web3 | null>(null);
+  const [contract, setContract] = useState<any>(null);
+  const [accounts, setAccounts] = useState<string[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<string[]>([]);
+  const [networkBalance, setNetworkBalance] = useState<number>(0);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>("");
+  const [tabIndex, setTabIndex] = useState<number>(0);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [retrievedFile, setRetrievedFile] = useState<Uint8Array | null>(null);
+  const [userDetails, setUserDetails] = useState<UserInfo | null>(null);
 
   const navigate = useNavigate();
 
@@ -67,7 +75,7 @@ const Admin = () => {
         } else {
           toast.error("Contract not deployed on the detected network.");
         }
-      } catch (error) {
+      } catch (error: any) {
         toast.error(error.message);
       }
     };
@@ -79,7 +87,7 @@ const Admin = () => {
       await contract.methods.adminLogout().send({ from: accounts[0] });
       await fakeAuthProvider.logoutAdmin();
       navigate("/register");
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message);
     }
   };
@@ -91,7 +99,7 @@ const Admin = () => {
           .getAllRegisteredUsersDIDs()
           .call({ from: accounts[0] });
         setRegisteredUsers(users);
-      } catch (error) {
+      } catch (error: any) {
         toast.error(error.message);
       }
     }
@@ -102,8 +110,8 @@ const Admin = () => {
       const balance = await contract.methods
         .getNetworkBalance()
         .call({ from: accounts[0] });
-      setNetworkBalance(web3.utils.fromWei(balance, "ether"));
-    } catch (error) {
+      setNetworkBalance(parseFloat(web3!.utils.fromWei(balance, "ether")));
+    } catch (error: any) {
       toast.error(error.message);
     }
   };
@@ -111,20 +119,20 @@ const Admin = () => {
   const handleWithdraw = async () => {
     try {
       fetchNetworkBalance();
-      if (withdrawAmount > networkBalance) {
-        toast.error("Insufficient inventory");
+      if (parseFloat(withdrawAmount) > networkBalance) {
+        toast.error("Insufficient balance");
         return;
       }
-      const amountWei = web3.utils.toWei(withdrawAmount, "ether");
+      const amountWei = web3!.utils.toWei(withdrawAmount, "ether");
       await contract.methods.withdraw(amountWei).send({ from: accounts[0] });
       setWithdrawAmount("");
       fetchNetworkBalance(); // Refresh balance after withdrawal
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message);
     }
   };
 
-  const handleChangeTab = (event, newValue) => {
+  const handleChangeTab = (event: React.ChangeEvent<{}>, newValue: number) => {
     setTabIndex(newValue);
   };
 
@@ -143,7 +151,7 @@ const Admin = () => {
     setRetrievedFile(null);
   };
 
-  const handleUserClick = async (user) => {
+  const handleUserClick = async (user: string) => {
     try {
       const userInfo = await contract.methods
         .getUserInfo(user)
@@ -165,7 +173,7 @@ const Admin = () => {
       setRetrievedFile(retrievedFile);
       setSelectedUser(user);
       setIsModalOpen(true);
-    } catch (error) {
+    } catch (error: any) {
       toast.error(`Failed to retrieve user data. Details: ${error.message}`);
     }
   };
@@ -251,13 +259,13 @@ const Admin = () => {
           </Box>
         )}
       </Box>
-      {selectedUser && (
+      {selectedUser && userDetails && (
         <Dialog open={isModalOpen} onClose={handleCloseModal}>
           <DialogTitle>User Details</DialogTitle>
           <DialogContent>
             <Typography variant="body1">
               Deposit Amount:{" "}
-              {web3.utils.fromWei(
+              {web3!.utils.fromWei(
                 userDetails.depositAmount.toString(),
                 "ether"
               )}{" "}

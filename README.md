@@ -115,15 +115,13 @@ cd smart-contract-react-dapp`
 
 `npm install`
 
-### 3.Compile and Deploy Smart Contract
+### 4.Install Ganache Ethereum and add Project to Ganache GUI
+
+### 5.Compile and Deploy Smart Contract
 
 Using Truffle:
 `truffle compile
 truffle migrate`
-
-Using Hardhat:
-`npx hardhat compile
-npx hardhat run scripts/deploy.js`
 
 ### 4.Start the React App
 
@@ -139,9 +137,10 @@ npx hardhat run scripts/deploy.js`
 
 - contracts/: Solidity smart contract files.
 - src/: React application source files.
-  - components/: React components.
-  - contexts/: React context for state management.
-  - utils/: Utility functions and helpers (e.g., Web3/Ethers setup).
+  - pages/: React pages.
+  - services/: React services.
+  - layout/: Layout of project.
+  - middleware/: middleware of project.
   - App.js: Main React component.
   - index.js: Entry point for the React app.
 
@@ -161,6 +160,6 @@ Distributed under the MIT License. See LICENSE for more information.
 
 ## Contact
 
-Your Name - your.email@example.com
+moslem - dev@monfaredman.com
 
 Project Link: https://github.com/your-username/smart-contract-react-dapp

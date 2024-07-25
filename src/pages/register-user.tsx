@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { TextField, Button, Typography, Box, Alert } from "@mui/material";
 import Web3 from "web3";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -6,8 +6,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Dayjs } from "dayjs";
 import { useNavigate } from "react-router-dom";
-import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
-import { generateDIDAndStoreData } from "@/services";
+import UserContract from "~/build/contracts/UserRegistration.json";
+import { generateDIDAndStoreData } from "@/services/services";
 import { fakeAuthProvider } from "@/middleware/auth";
 import { toast } from "react-toastify";
 
@@ -29,7 +29,7 @@ const Register: React.FC = () => {
     birthday: null,
     docFile: null,
   });
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<Web3.eth.Contract | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [fileConfirmation, setFileConfirmation] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -54,7 +54,7 @@ const Register: React.FC = () => {
         } else {
           toast.error("Contract not deployed on the detected network.");
         }
-      } catch (error) {
+      } catch (error: any) {
         toast.error(error.message);
       }
     };
@@ -63,18 +63,11 @@ const Register: React.FC = () => {
   }, []);
 
   const handleChange =
-    (prop: keyof UserInfo) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    (prop: keyof UserInfo) => (event: ChangeEvent<HTMLInputElement>) => {
       setUserInfo({ ...userInfo, [prop]: event.target.value });
     };
 
-  // const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-  //   const files = event.target.files;
-  //   if (files && files.length > 0) {
-  //     setUserInfo({ ...userInfo, docFile: files[0] });
-  //     setFileConfirmation(`Selected file: ${files[0].name}`);
-  //   }
-  // };
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
       if (files[0]?.type !== "application/pdf") {
@@ -82,12 +75,13 @@ const Register: React.FC = () => {
         setFileConfirmation(null);
       } else {
         setUserInfo({ ...userInfo, docFile: files[0] });
-        setFileConfirmation(`Selected file: ${files.name}`);
+        setFileConfirmation(`Selected file: ${files[0].name}`);
         toast.success("File selected successfully.");
       }
     }
   };
-  const handleRegister = async (event: React.FormEvent) => {
+
+  const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
 
     if (!contract) {
@@ -98,58 +92,42 @@ const Register: React.FC = () => {
     const { firstName, lastName, birthday, passportNo, docFile } = userInfo;
 
     if (!firstName || !lastName || !birthday || !passportNo || !docFile) {
-      toast.error(
-        "Please fill in all required fields and upload the document."
-      );
-
+      toast.error("Please fill in all required fields and upload the document.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Generate DID and store user info in IPFS
-      const { userInfoCid, fileHash, retrievedUserInfo, retrievedFile, didId } =
-        await generateDIDAndStoreData({
-          firstName,
-          lastName,
-          phoneNumber: passportNo,
-          birthday: birthday.format("YYYY-MM-DD"),
-          docFile,
-        });
-      // Register user on the blockchain
-      const didIdStr = String(didId);
-      const userInfoCidStr = String(userInfoCid);
-      const fileHashStr = String(fileHash);
+      const { userInfoCid, fileHash, didId } = await generateDIDAndStoreData({
+        firstName,
+        lastName,
+        phoneNumber: passportNo,
+        birthday: birthday.format("YYYY-MM-DD"),
+        docFile,
+      });
+
       await contract.methods
-        .registerUser(didIdStr, userInfoCidStr, fileHashStr)
-        .send({ from: account, gas: 3000000 })
-        .then(async () => {
-          // Store user data to local storage
-          const userData = {
-            firstName,
-            lastName,
-            passportNo,
-            birthday: birthday.format("YYYY-MM-DD"),
-            docFileName: docFile.name,
-            didId: didIdStr,
-            userInfoCid: userInfoCidStr,
-            fileHash: fileHashStr,
-          };
-          localStorage.setItem("userData", JSON.stringify(userData));
+        .registerUser(didId, userInfoCid, fileHash)
+        .send({ from: account, gas: 3000000 });
 
-          // Sign in the user
-          await fakeAuthProvider.signin(firstName);
+      const userData = {
+        firstName,
+        lastName,
+        passportNo,
+        birthday: birthday.format("YYYY-MM-DD"),
+        docFileName: docFile.name,
+        didId,
+        userInfoCid,
+        fileHash,
+      };
+      localStorage.setItem("userData", JSON.stringify(userData));
 
-          toast.success(
-            "User registered successfully and data stored locally."
-          );
-          navigate("/");
-        })
-        .catch((error: any) => {
-          toast.error(error.message);
-        });
-    } catch (error) {
+      await fakeAuthProvider.signin(firstName);
+
+      toast.success("User registered successfully and data stored locally.");
+      navigate("/");
+    } catch (error: any) {
       toast.error(error.message);
     } finally {
       setLoading(false);
@@ -158,12 +136,7 @@ const Register: React.FC = () => {
 
   return (
     <>
-      <Typography
-        variant='h4'
-        component='h1'
-        gutterBottom
-        sx={{ marginTop: "2rem" }}
-      >
+      <Typography variant='h4' component='h1' gutterBottom sx={{ marginTop: "2rem" }}>
         Register user to network
       </Typography>
       <Box component='form' onSubmit={handleRegister} sx={{ mt: 2 }}>
@@ -199,13 +172,10 @@ const Register: React.FC = () => {
               field: { clearable: true },
               textField: { required: true, error: !userInfo.birthday },
             }}
-            onChange={(newValue) =>
-              setUserInfo({ ...userInfo, birthday: newValue })
-            }
+            onChange={(newValue) => setUserInfo({ ...userInfo, birthday: newValue })}
             disabled={loading}
           />
         </LocalizationProvider>
-
         <TextField
           label='Passport No'
           variant='outlined'
@@ -217,12 +187,8 @@ const Register: React.FC = () => {
           error={!userInfo.passportNo}
           disabled={loading}
         />
-
         <Box sx={{ mt: 4 }}>
-          <Typography
-            color={`${userInfo.docFile ? "black" : "red"}`}
-            variant='h5'
-          >
+          <Typography color={userInfo.docFile ? "black" : "red"} variant='h5'>
             Upload Documents
           </Typography>
           <input
@@ -239,13 +205,7 @@ const Register: React.FC = () => {
             </Alert>
           )}
         </Box>
-        <Button
-          type='submit'
-          variant='contained'
-          color='primary'
-          fullWidth
-          disabled={loading}
-        >
+        <Button type='submit' variant='contained' color='primary' fullWidth disabled={loading}>
           {loading ? "Registering..." : "Register User"}
         </Button>
         <Button

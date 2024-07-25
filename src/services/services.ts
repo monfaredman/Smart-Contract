@@ -3,30 +3,36 @@ import { Ed25519Provider } from "key-did-provider-ed25519";
 import { DID } from "dids";
 import KeyResolver from "key-did-resolver";
 import { randomBytes } from "@stablelib/random";
-import { CID } from 'multiformats/cid'
+import { CID } from 'multiformats/cid';
+
+// Define the UserInfo interface
+interface UserInfo {
+  firstName: string;
+  lastName: string;
+  passportNo: string;
+  birthday: string;
+  docFile?: File;
+  did?: string;
+}
 
 // Function to read a file as an ArrayBuffer
-const readFileAsArrayBuffer = (file) => {
+const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
 };
 
 // Function to generate DID
-const didGenerator = async () => {
+const didGenerator = async (): Promise<string> => {
   try {
-    // Generate a new key pair for the DID
     const seed = randomBytes(32);
     const provider = new Ed25519Provider(seed);
     const did = new DID({ provider, resolver: KeyResolver.getResolver() });
     await did.authenticate();
-
-    // Create the DID ID
-    const didId = did.id;
-    return didId;
+    return did.id;
   } catch (error) {
     console.error("Error generating DID:", error);
     throw new Error("Failed to generate DID.");
@@ -34,11 +40,9 @@ const didGenerator = async () => {
 };
 
 // Function to convert CID hash string to CID object
-const convertCidStringToObject = (cidString) => {
+const convertCidStringToObject = (cidString: string): CID | null => {
   try {
-    // Convert the string to a CID object
-    const cid = CID.parse(cidString);
-    return cid;
+    return CID.parse(cidString);
   } catch (error) {
     console.error("Error converting CID string to object:", error);
     return null;
@@ -46,11 +50,10 @@ const convertCidStringToObject = (cidString) => {
 };
 
 // Function to store userInfo JSON on IPFS and return the CID
-const storeUserInfo = async (userInfo) => {
+const storeUserInfo = async (userInfo: UserInfo): Promise<CID> => {
   try {
     const { jsonClient } = await HeliaSingleton.getInstance();
-    const userInfoCid = await jsonClient.add(userInfo);
-    return userInfoCid;
+    return await jsonClient.add(userInfo);
   } catch (error) {
     console.error("Error storing userInfo on IPFS:", error);
     throw new Error("Failed to store userInfo on IPFS.");
@@ -58,7 +61,7 @@ const storeUserInfo = async (userInfo) => {
 };
 
 // Function to store docFile on IPFS and return the CID
-const storeDocFile = async (docFile) => {
+const storeDocFile = async (docFile?: File): Promise<string | null> => {
   if (!docFile) return null;
 
   try {
@@ -67,13 +70,10 @@ const storeDocFile = async (docFile) => {
     const uint8Array = new Uint8Array(arrayBuffer);
 
     const entries = fsClient.addAll([
-      {
-        path: docFile.name,
-        content: uint8Array,
-      },
+      { path: docFile.name, content: uint8Array },
     ]);
 
-    let fileHash = null;
+    let fileHash: string | null = null;
     for await (const entry of entries) {
       fileHash = entry.cid.toString();
     }
@@ -86,24 +86,21 @@ const storeDocFile = async (docFile) => {
 };
 
 // Function to retrieve userInfo from IPFS using its CID
-export const retrieveUserInfo = async (userInfoCid, type) => {
-  let userinfo = null;
+export const retrieveUserInfo = async (userInfoCid: string, type: number): Promise<any> => {
+  let userinfo: CID | null = null;
   if (type === 2) {
     userinfo = convertCidStringToObject(userInfoCid);
   } else {
-    userinfo = userInfoCid;
+    userinfo = CID.parse(userInfoCid);
   }
+
   try {
     const { jsonClient } = await HeliaSingleton.getInstance();
     if (!jsonClient) {
-      throw new Error(
-        "jsonClient is undefined. Ensure HeliaSingleton.getInstance() is working correctly."
-      );
+      throw new Error("jsonClient is undefined. Ensure HeliaSingleton.getInstance() is working correctly.");
     }
     if (!userinfo) {
-      throw new Error(
-        "userInfoCid is undefined. Ensure a valid CID is provided."
-      );
+      throw new Error("userInfoCid is undefined. Ensure a valid CID is provided.");
     }
 
     const retrievedUserInfo = await jsonClient.get(userinfo);
@@ -114,24 +111,21 @@ export const retrieveUserInfo = async (userInfoCid, type) => {
     return retrievedUserInfo;
   } catch (error) {
     console.error("Error retrieving userInfo from IPFS:", error);
-    throw new Error(
-      `Failed to retrieve userInfo from IPFS. Details: ${error.message}`
-    );
+    throw new Error(`Failed to retrieve userInfo from IPFS. Details: ${error.message}`);
   }
 };
 
 // Function to retrieve docFile from IPFS using its CID
-export const retrieveDocFile = async (fileHash) => {
+export const retrieveDocFile = async (fileHash: string): Promise<Uint8Array | null> => {
   if (!fileHash) return null;
 
   try {
     const { fsClient } = await HeliaSingleton.getInstance();
-    const fileData = [];
+    const fileData: Uint8Array[] = [];
     for await (const chunk of fsClient.cat(fileHash)) {
-      fileData.push(...chunk);
+      fileData.push(chunk);
     }
-    const retrievedFile = new Uint8Array(fileData);
-    return retrievedFile;
+    return new Uint8Array(fileData.flat());
   } catch (error) {
     console.error("Error retrieving document file from IPFS:", error);
     throw new Error("Failed to retrieve document file from IPFS.");
@@ -139,7 +133,7 @@ export const retrieveDocFile = async (fileHash) => {
 };
 
 // Main function to generate DID, store data, and retrieve/verify it
-export const generateDIDAndStoreData = async (userInfo) => {
+export const generateDIDAndStoreData = async (userInfo: UserInfo) => {
   const { firstName, lastName, passportNo, birthday, docFile } = userInfo;
 
   try {
@@ -154,12 +148,10 @@ export const generateDIDAndStoreData = async (userInfo) => {
     const fileHash = await storeDocFile(docFile);
 
     // Retrieve the userInfo from IPFS using its CID
-    const retrievedUserInfos = await retrieveUserInfo(userInfoCid, 1);
+    const retrievedUserInfos = await retrieveUserInfo(userInfoCid.toString(), 1);
 
     // Retrieve the docFile from IPFS using its CID
-    const retrievedFile = await retrieveDocFile(fileHash);
-    // Verify retrieved data (example: log and compare)
-    // const userInfoMatch = JSON.stringify(retrievedUserInfo) === JSON.stringify(userInfo);
+    const retrievedFile = await retrieveDocFile(fileHash!);
 
     return {
       userInfoCid: userInfoCid.toString(),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, MouseEvent } from "react";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
@@ -12,14 +12,20 @@ import { LoadingButton } from "@mui/lab";
 import Web3 from "web3";
 import { toast } from "react-toastify";
 
-const Header = () => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [balance, setBalance] = useState(null);
-  const [selectedAccount, setSelectedAccount] = useState(null);
-  const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+declare global {
+  interface Window {
+    ethereum: any;
+  }
+}
+
+const Header: React.FC = () => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [accounts, setAccounts] = useState<string[]>([]);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+  const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState<boolean>(false);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const init = async () => {
@@ -42,7 +48,7 @@ const Header = () => {
             const balanceEth = web3.utils.fromWei(balanceWei, "ether");
             setBalance(balanceEth);
 
-            window.ethereum.on("accountsChanged", async (accounts) => {
+            window.ethereum.on("accountsChanged", async (accounts: string[]) => {
               if (accounts.length > 0) {
                 setAccounts(accounts);
                 const account = accounts[0];
@@ -61,7 +67,7 @@ const Header = () => {
             });
           }
         } catch (error) {
-          toast.error(error.message);
+          toast.error((error as Error).message);
         }
       } else {
         setIsMetaMaskInstalled(false);
@@ -73,7 +79,7 @@ const Header = () => {
     init();
   }, []);
 
-  const handleMenuOpen = (event) => {
+  const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
@@ -91,7 +97,7 @@ const Header = () => {
         });
         if (accounts.length > 0) {
           const account = accounts[0];
-          setAccounts(accounts); // Ensure accounts is an array
+          setAccounts(accounts);
           setSelectedAccount(account);
           setIsConnected(true);
 
@@ -100,7 +106,7 @@ const Header = () => {
           const balanceEth = web3.utils.fromWei(balanceWei, "ether");
           setBalance(balanceEth);
 
-          window.ethereum.on("accountsChanged", async (accounts) => {
+          window.ethereum.on("accountsChanged", async (accounts: string[]) => {
             if (accounts.length > 0) {
               setAccounts(accounts);
               const account = accounts[0];
@@ -120,7 +126,7 @@ const Header = () => {
           });
         }
       } catch (error) {
-        toast.error(error.message);
+        toast.error((error as Error).message);
       }
     }
     setIsLoading(false);
@@ -139,12 +145,11 @@ const Header = () => {
   };
 
   return (
-    <AppBar position='static'>
+    <AppBar position="static">
       <Toolbar>
-        {/* Site Logo */}
         <Typography
-          variant='h4'
-          component='div'
+          variant="h4"
+          component="div"
           sx={{
             flexGrow: 1,
             color: "#fff",
@@ -155,18 +160,17 @@ const Header = () => {
           DApp
         </Typography>
         {isLoading ? (
-          <CircularProgress color='inherit' />
+          <CircularProgress color="inherit" />
         ) : isMetaMaskInstalled ? (
           isConnected ? (
             <>
-              {/* Profile Avatar */}
               <IconButton
-                size='large'
-                edge='end'
-                color='inherit'
-                aria-label='profile'
-                aria-controls='menu-appbar'
-                aria-haspopup='true'
+                size="large"
+                edge="end"
+                color="inherit"
+                aria-label="profile"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
                 onClick={handleMenuOpen}
                 sx={{ ml: 2 }}
               >
@@ -174,9 +178,8 @@ const Header = () => {
                   {selectedAccount && selectedAccount.slice(1, 5)}...
                 </Avatar>
               </IconButton>
-              {/* User Menu */}
               <Menu
-                id='menu-appbar'
+                id="menu-appbar"
                 anchorEl={anchorEl}
                 anchorOrigin={{
                   vertical: "top",
@@ -196,9 +199,7 @@ const Header = () => {
                     {Array.isArray(accounts) &&
                       accounts.map((account, index) => (
                         <li style={{ listStyle: "none" }} key={index}>
-                          <span
-                            style={{ fontWeight: "bold", fontSize: "14px" }}
-                          >
+                          <span style={{ fontWeight: "bold", fontSize: "14px" }}>
                             {index + 1}
                           </span>{" "}
                           <span
@@ -236,16 +237,12 @@ const Header = () => {
               </Menu>
             </>
           ) : (
-            <LoadingButton
-              color='inherit'
-              onClick={connectToMetaMask}
-              loading={isLoading}
-            >
+            <LoadingButton color="inherit" onClick={connectToMetaMask} loading={isLoading}>
               Connect to MetaMask
             </LoadingButton>
           )
         ) : (
-          <Button color='inherit' onClick={installMetaMask}>
+          <Button color="inherit" onClick={installMetaMask}>
             Install MetaMask
           </Button>
         )}

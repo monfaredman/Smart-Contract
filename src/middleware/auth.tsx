@@ -2,10 +2,12 @@
 interface AuthProvider {
   isAuthenticated: boolean;
   isAdmin: boolean;
-  username: null | string;
+  username: string | null;
+  init(): Promise<void>;
   signin(username: string): Promise<void>;
   signout(): Promise<void>;
   loginAdmin(): Promise<void>;
+  logoutAdmin(): Promise<void>;
 }
 
 // Fake authentication provider
@@ -17,16 +19,16 @@ export const fakeAuthProvider: AuthProvider = {
   // Initialize state from local storage
   async init() {
     const storedUsername = localStorage.getItem("username");
-    const storedIsAuthenticated =
-      localStorage.getItem("isAuthenticated") === "true";
-    const storedIsisAdmin = localStorage.getItem("isAdmin") === "true";
+    const storedIsAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+    const storedIsAdmin = localStorage.getItem("isAdmin") === "true";
 
     if (storedIsAuthenticated && storedUsername) {
       this.isAuthenticated = true;
       this.username = storedUsername;
       this.isAdmin = false;
     }
-    if (storedIsisAdmin) {
+
+    if (storedIsAdmin) {
       this.isAuthenticated = false;
       this.username = null;
       this.isAdmin = true;
@@ -34,7 +36,7 @@ export const fakeAuthProvider: AuthProvider = {
   },
 
   async signin(username: string) {
-    await new Promise((r) => setTimeout(r, 500)); // fake delay
+    await new Promise((resolve) => setTimeout(resolve, 500)); // fake delay
     this.isAuthenticated = true;
     this.username = username;
     this.isAdmin = false;
@@ -44,15 +46,16 @@ export const fakeAuthProvider: AuthProvider = {
   },
 
   async loginAdmin() {
-    await new Promise((r) => setTimeout(r, 500)); // fake delay
+    await new Promise((resolve) => setTimeout(resolve, 500)); // fake delay
     localStorage.clear();
     this.isAuthenticated = false;
     this.username = null;
     this.isAdmin = true;
     localStorage.setItem("isAdmin", "true");
   },
+
   async logoutAdmin() {
-    await new Promise((r) => setTimeout(r, 500)); // fake delay
+    await new Promise((resolve) => setTimeout(resolve, 500)); // fake delay
     localStorage.clear();
     this.isAuthenticated = false;
     this.username = null;
@@ -60,13 +63,12 @@ export const fakeAuthProvider: AuthProvider = {
   },
 
   async signout() {
-    await new Promise((r) => setTimeout(r, 500)); // fake delay
+    await new Promise((resolve) => setTimeout(resolve, 500)); // fake delay
     this.isAuthenticated = false;
     this.username = null;
     this.isAdmin = false;
     localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("username");
-    localStorage.removeItem("userData");
     localStorage.removeItem("isAdmin");
   },
 };
