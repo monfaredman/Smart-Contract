@@ -39,44 +39,55 @@ const Dashboard: React.FC = () => {
     const init = async () => {
       setLoading(true);
       try {
-        const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
-        const accounts = await web3.eth.getAccounts();
-        setAccount(accounts[0]);
-
-        const networkId = await web3.eth.net.getId();
-        console.log("Network ID:", networkId); // Debugging line
-
-        const deployedNetwork = UserContract.networks[networkId];
-        if (deployedNetwork) {
-          console.log("Deployed Network:", deployedNetwork); // Debugging line
-          const instance = new web3.eth.Contract(
-            UserContract.abi,
-            deployedNetwork.address
-          );
-          setContract(instance);
+        if (window.ethereum) {
+          const web3 = new Web3(window.ethereum);
+          try {
+            await window.ethereum.request({ method: "eth_requestAccounts" });
+          } catch (error) {
+            toast.error("User denied account access");
+            return;
+          }
+  
+          const accounts = await web3.eth.getAccounts();
+          setAccount(accounts[0]);
+  
+          const networkId = await web3.eth.net.getId();
+  
+          const deployedNetwork = UserContract.networks[networkId];
+          if (deployedNetwork) {
+            const instance = new web3.eth.Contract(
+              UserContract.abi,
+              deployedNetwork.address
+            );
+            setContract(instance);
+          } else {
+            toast.error("Contract not deployed on the detected network.");
+          }
+  
+          const userData = localStorage.getItem("userData");
+          if (userData) {
+            const userObj = JSON.parse(userData);
+            setUserDID(userObj.didId);
+          } else {
+            toast.error("User data not found in local storage.");
+            navigate("/register");
+            return;
+          }
+          toast.success("Initialization successful!");
         } else {
-          toast.error("Contract not deployed on the detected network.");
+          toast.error("Please install MetaMask!");
         }
-
-        const userData = localStorage.getItem("userData");
-        if (userData) {
-          const userObj = JSON.parse(userData);
-          setUserDID(userObj.didId);
-        } else {
-          toast.error("User data not found in local storage.");
-          navigate("/register"); // Redirect to login if user data is not found
-          return; // Exit early if no user data
-        }
-        toast.success("Initialization successful!");
       } catch (error) {
         toast.error(error.message);
       } finally {
         setLoading(false);
       }
     };
-
+  
     init();
   }, [navigate]);
+  
+  
 
   useEffect(() => {
     fetchTransactions();
@@ -93,15 +104,12 @@ const Dashboard: React.FC = () => {
   const fetchTransactions = async () => {
     if (contract && userDID && account) {
       setFetchingTransactions(true);
-      console.log(55, userDID, account);
       try {
-        console.log("Fetching transactions..."); // Debugging line
         const events = await contract.getPastEvents("Deposit", {
           filter: { userDID: userDID },
           fromBlock: 0, // You can specify the starting block number
           toBlock: "latest", // Or the ending block number
         });
-        console.log("events", events);
 
         const parsedTransactions = await Promise.all(
           events.map(async (event) => {
@@ -117,7 +125,6 @@ const Dashboard: React.FC = () => {
 
             // Convert block.timestamp to a number
             const timestamp = Number(block.timestamp);
-            console.log("block", timestamp);
             return {
               type: event.event,
               amount: Web3.utils.fromWei(
@@ -128,7 +135,6 @@ const Dashboard: React.FC = () => {
             };
           })
         );
-        console.log("parsedTransactions", parsedTransactions);
         setTransactions(parsedTransactions);
         toast.success("Transactions fetched successfully!");
       } catch (error) {
@@ -137,19 +143,18 @@ const Dashboard: React.FC = () => {
         setFetchingTransactions(false);
       }
     } else {
-      console.log("Waiting for contract, userDID, and account to be set."); // Debugging line
+      toast.error("Waiting for contract, userDID, and account to be set."); // Debugging line
     }
   };
 
   const handleDeposit = async (event) => {
     event.preventDefault();
-    console.log(userDID, account, depositAmount);
     if (!contract || !userDID || !account || !depositAmount) {
       toast.error("Missing contract, userDID, account, or depositAmount.");
       return;
     }
     setLoading(true);
-
+  
     try {
       await contract.methods
         .deposit(userDID, Web3.utils.toWei(depositAmount, "ether"))
@@ -158,7 +163,7 @@ const Dashboard: React.FC = () => {
           value: Web3.utils.toWei(depositAmount, "ether"),
           gas: 3000000,
         });
-
+  
       setDepositAmount("");
       fetchTransactions();
       toast.success("Deposit successful!");
@@ -168,6 +173,7 @@ const Dashboard: React.FC = () => {
       setLoading(false);
     }
   };
+  
 
   const handleLogout = async () => {
     await fakeAuthProvider.signout();
@@ -189,7 +195,7 @@ const Dashboard: React.FC = () => {
           gutterBottom
           style={{ marginTop: "1rem" }}
         >
-          {userInfo && <span style={{ color: "blue" }}>{userInfo}'s</span>}
+          {userInfo && <span style={{ color: "blue" }}>{userInfo}'s</span>}{' '}
           Dashboard
         </Typography>
         <Button

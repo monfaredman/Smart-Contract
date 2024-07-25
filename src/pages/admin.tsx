@@ -9,12 +9,24 @@ import {
   List,
   ListItem,
   Box,
-  Grid,
   Tabs,
   Tab,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import { fakeAuthProvider } from "@/middleware/auth";
+import { retrieveUserInfo, retrieveDocFile } from "@/services";
+import { useNavigate } from "react-router-dom";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
 
@@ -26,6 +38,12 @@ const Admin = () => {
   const [networkBalance, setNetworkBalance] = useState(0);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [tabIndex, setTabIndex] = useState(0);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [retrievedFile, setRetrievedFile] = useState(null);
+  const [userDetails, setUserDetails] = useState(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const init = async () => {
@@ -47,13 +65,10 @@ const Admin = () => {
           );
           setContract(instance);
         } else {
-          console.error("Contract not deployed on the detected network.");
+          toast.error("Contract not deployed on the detected network.");
         }
       } catch (error) {
-        console.error(
-          "Error initializing web3 or fetching transactions: ",
-          error
-        );
+        toast.error(error.message);
       }
     };
     init();
@@ -63,6 +78,7 @@ const Admin = () => {
     try {
       await contract.methods.adminLogout().send({ from: accounts[0] });
       await fakeAuthProvider.logoutAdmin();
+      navigate("/register");
     } catch (error) {
       toast.error(error.message);
     }
@@ -77,7 +93,6 @@ const Admin = () => {
         setRegisteredUsers(users);
       } catch (error) {
         toast.error(error.message);
-        console.log(2);
       }
     }
   };
@@ -90,7 +105,6 @@ const Admin = () => {
       setNetworkBalance(web3.utils.fromWei(balance, "ether"));
     } catch (error) {
       toast.error(error.message);
-      console.log(1);
     }
   };
 
@@ -122,17 +136,51 @@ const Admin = () => {
     }
   }, [tabIndex, contract]);
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedUser(null);
+    setUserDetails(null);
+    setRetrievedFile(null);
+  };
+
+  const handleUserClick = async (user) => {
+    try {
+      const userInfo = await contract.methods
+        .getUserInfo(user)
+        .call({ from: accounts[0] });
+
+      if (!userInfo.ipfsUserInfoHash) {
+        throw new Error("userInfo.ipfsUserInfoHash is undefined.");
+      }
+      if (!userInfo.docFileIPFSHash) {
+        throw new Error("userInfo.docFileIPFSHash is undefined.");
+      }
+
+      const retrievedFile = await retrieveDocFile(userInfo.docFileIPFSHash);
+      const retrievedUserInfo = await retrieveUserInfo(
+        userInfo.ipfsUserInfoHash,
+        2
+      );
+      setUserDetails({ ...userInfo, ...retrievedUserInfo });
+      setRetrievedFile(retrievedFile);
+      setSelectedUser(user);
+      setIsModalOpen(true);
+    } catch (error) {
+      toast.error(`Failed to retrieve user data. Details: ${error.message}`);
+    }
+  };
+
   return (
     <Container>
       <Box my={4}>
         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography variant='h3' component='h1' gutterBottom>
+          <Typography variant="h3" component="h1" gutterBottom>
             Admin Dashboard
           </Typography>
           <Button
-            variant='outlined'
-            size='small'
-            color='error'
+            variant="outlined"
+            size="small"
+            color="error"
             style={{ height: "3rem" }}
             onClick={adminLogout}
           >
@@ -140,45 +188,62 @@ const Admin = () => {
           </Button>
         </Box>
         <Tabs value={tabIndex} onChange={handleChangeTab}>
-          <Tab label='Registered Users' />
-          <Tab label='Network Balance' />
-          <Tab label='Withdraw Funds' />
+          <Tab label="Registered Users" />
+          <Tab label="Network Balance" />
+          <Tab label="Withdraw Funds" />
         </Tabs>
         {tabIndex === 0 && (
           <Box my={4}>
-            <Typography variant='h5' component='h2'>
-              Registered Users
-            </Typography>
-            <List>
-              {registeredUsers.map((user, index) => (
-                <ListItem key={index}>{user}</ListItem>
-              ))}
-            </List>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>User DID</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {registeredUsers.map((user, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{user}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          onClick={() => handleUserClick(user)}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         )}
         {tabIndex === 1 && (
           <Box my={4}>
-            <Typography variant='h5' component='h2'>
+            <Typography variant="h5" component="h2">
               Network Balance: {networkBalance} ETH
             </Typography>
           </Box>
         )}
         {tabIndex === 2 && (
           <Box my={4}>
-            <Typography variant='h5' component='h2'>
+            <Typography variant="h5" component="h2">
               Withdraw Funds
             </Typography>
             <TextField
-              label='Amount in ETH'
+              label="Amount in ETH"
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
-              variant='outlined'
+              variant="outlined"
               fullWidth
-              margin='normal'
+              margin="normal"
             />
             <Button
-              variant='contained'
-              color='primary'
+              variant="contained"
+              color="primary"
               onClick={handleWithdraw}
             >
               Withdraw
@@ -186,6 +251,50 @@ const Admin = () => {
           </Box>
         )}
       </Box>
+      {selectedUser && (
+        <Dialog open={isModalOpen} onClose={handleCloseModal}>
+          <DialogTitle>User Details</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1">
+              Deposit Amount:{" "}
+              {web3.utils.fromWei(
+                userDetails.depositAmount.toString(),
+                "ether"
+              )}{" "}
+              ETH
+            </Typography>
+            <Typography variant="body1">
+              First Name: {userDetails.firstName}
+            </Typography>
+            <Typography variant="body1">
+              Last Name: {userDetails.lastName}
+            </Typography>
+            <Typography variant="body1">
+              Passport No: {userDetails.passportNo}
+            </Typography>
+            <Typography variant="body1">
+              Birthday: {userDetails.birthday}
+            </Typography>
+            {retrievedFile && (
+              <a
+                href={URL.createObjectURL(
+                  new Blob([retrievedFile], {
+                    type: "application/octet-stream",
+                  })
+                )}
+                download="retrievedDocument"
+              >
+                Download Document
+              </a>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseModal} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Container>
   );
 };

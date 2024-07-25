@@ -87,7 +87,7 @@ const loginAdmin = () => {
           margin='normal'
           required
           error={!username}
-          helperText='admin'
+          helperText='hint: admin'
         />
         <TextField
           label='Password'
@@ -99,7 +99,7 @@ const loginAdmin = () => {
           margin='normal'
           required
           error={!password}
-          helperText='password'
+          helperText='hint: password'
         />
         {error && (
           <Typography color='error' style={{ marginTop: "10px" }}>

@@ -31,7 +31,6 @@ const Header = () => {
           const accounts = await window.ethereum.request({
             method: "eth_requestAccounts",
           });
-          console.log("accounts", accounts);
           if (accounts.length > 0) {
             setAccounts(accounts);
             const account = accounts[0];
@@ -48,7 +47,6 @@ const Header = () => {
                 setAccounts(accounts);
                 const account = accounts[0];
                 setSelectedAccount(account);
-                console.log("accountsChanged", accounts);
                 // Update balance on account change
                 const balanceWei = await web3.eth.getBalance(account);
                 const balanceEth = web3.utils.fromWei(balanceWei, "ether");
@@ -84,7 +82,6 @@ const Header = () => {
   };
 
   const connectToMetaMask = async () => {
-    console.log(1, accounts);
     setIsLoading(true);
     if (window.ethereum) {
       try {
@@ -139,7 +136,6 @@ const Header = () => {
     setSelectedAccount(null);
     setIsConnected(false);
     setBalance(null);
-    console.log(accounts);
   };
 
   return (

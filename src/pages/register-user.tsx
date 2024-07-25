@@ -109,7 +109,7 @@ const Register: React.FC = () => {
 
     try {
       // Generate DID and store user info in IPFS
-      const { userInfoCid, fileHash, userInfoMatch, retrievedFile, didId } =
+      const { userInfoCid, fileHash, retrievedUserInfo, retrievedFile, didId } =
         await generateDIDAndStoreData({
           firstName,
           lastName,
@@ -117,14 +117,6 @@ const Register: React.FC = () => {
           birthday: birthday.format("YYYY-MM-DD"),
           docFile,
         });
-      console.log("DID and IPFS data:", {
-        userInfoCid,
-        fileHash,
-        userInfoMatch,
-        retrievedFile,
-        didId,
-      });
-
       // Register user on the blockchain
       const didIdStr = String(didId);
       const userInfoCidStr = String(userInfoCid);
