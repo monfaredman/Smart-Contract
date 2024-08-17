@@ -81,8 +81,8 @@ Currency symbol: ETH
 ### 5.Compile and Deploy Smart Contract
 
 Using Truffle:
-`npx truffle compile
-npx truffle migrate`
+`npx truffle compile`
+`npx truffle migrate`
 
 ### 6.Start the React App
 
