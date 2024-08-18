@@ -1,47 +1,79 @@
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-
 const path = require("path");
 
-module.exports = {
-  mode: "development", // Add this line
-  entry: "./src/index.tsx",
-  output: {
-    filename: "bundle.js",
-    path: path.resolve(__dirname, "dist"),
-  },
-  module: {
-    rules: [
-      {
-        test: /\.(ts|tsx)$/,
-        exclude: /node_modules/,
-        use: "babel-loader",
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === "production";
+
+  return {
+    mode: isProduction ? "production" : "development",
+    entry: "./src/index.tsx",
+    output: {
+      filename: isProduction ? "[name].[contenthash].js" : "bundle.js",
+      path: path.resolve(__dirname, "dist"),
+      clean: true, // Clean the output directory before emit
+    },
+    module: {
+      rules: [
+        {
+          test: /\.(ts|tsx)$/,
+          exclude: /node_modules/,
+          use: "babel-loader",
+        },
+        {
+          test: /\.css$/,
+          use: ["style-loader", "css-loader"],
+        },
+        {
+          test: /\.(png|svg|jpg|jpeg|gif)$/i,
+          type: "asset/resource", // Handle images and other assets
+        },
+      ],
+    },
+    resolve: {
+      extensions: [".tsx", ".ts", ".js"],
+      alias: {
+        "~": path.resolve(__dirname, "./"),
+        "@": path.resolve(__dirname, "./src"),
+        "@components": path.resolve(__dirname, "./src/components"),
       },
-      {
-        test: /\.css$/,
-        use: ["style-loader", "css-loader"], // Add this rule
-      },
+    },
+    plugins: [
+      new HtmlWebpackPlugin({
+        template: "./public/index.html",
+        minify: isProduction
+          ? {
+              removeComments: true,
+              collapseWhitespace: true,
+              removeRedundantAttributes: true,
+              useShortDoctype: true,
+              removeEmptyAttributes: true,
+              removeStyleLinkTypeAttributes: true,
+              keepClosingSlash: true,
+              minifyJS: true,
+              minifyCSS: true,
+              minifyURLs: true,
+            }
+          : false,
+      }),
     ],
-  },
-  resolve: {
-    extensions: [".tsx", ".ts", ".js"],
-    alias: {
-      "~": path.resolve(__dirname, "./"),
-      "@": path.resolve(__dirname, "./src"),
-      "@components": path.resolve(__dirname, "./src/components"),
+    devServer: {
+      historyApiFallback: true,
+      static: {
+        directory: path.join(__dirname, "public"),
+      },
+      hot: true,
+      compress: true,
+      port: 3000,
     },
-  },
-  plugins: [
-    new HtmlWebpackPlugin({
-      template: "./public/index.html",
-    }),
-  ],
-  devServer: {
-    historyApiFallback: true, // This ensures that all routes serve the index.html file
-    static: {
-      directory: path.join(__dirname, "public"), // Serve static files from the 'public' directory
-    },
-    hot: true,
-    compress: true,
-    port: 3000,
-  },
+    optimization: isProduction
+      ? {
+          splitChunks: {
+            chunks: "all",
+          },
+          runtimeChunk: {
+            name: "runtime",
+          },
+        }
+      : {},
+  };
 };
