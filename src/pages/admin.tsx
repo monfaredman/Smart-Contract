@@ -52,12 +52,15 @@ const Admin: React.FC = () => {
   const [userDetails, setUserDetails] = useState<UserInfo | null>(null);
 
   const navigate = useNavigate();
+  const alchemyApiKey = process.env.REACT_APP_ALCHEMY_API_KEY;
+  const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
 
   useEffect(() => {
     const init = async () => {
       try {
         const web3Instance = new Web3(
-          new Web3.providers.HttpProvider(GANACHE_RPC_URL)
+          // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
+          new Web3.providers.HttpProvider(alchemyApiKey)
         );
         setWeb3(web3Instance);
 
@@ -67,10 +70,15 @@ const Admin: React.FC = () => {
         const networkId = await web3Instance.eth.net.getId();
         const deployedNetwork = UserContract.networks[networkId];
         if (deployedNetwork) {
+          // const instance = new web3Instance.eth.Contract(
+          //   UserContract.abi,
+          //   deployedNetwork.address
+          // );
           const instance = new web3Instance.eth.Contract(
             UserContract.abi,
-            deployedNetwork.address
+            contractAddress
           );
+
           setContract(instance);
         } else {
           toast.error("Contract not deployed on the detected network.");
@@ -182,13 +190,13 @@ const Admin: React.FC = () => {
     <Container>
       <Box my={4}>
         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography variant="h3" component="h1" gutterBottom>
+          <Typography variant='h3' component='h1' gutterBottom>
             Admin Dashboard
           </Typography>
           <Button
-            variant="outlined"
-            size="small"
-            color="error"
+            variant='outlined'
+            size='small'
+            color='error'
             style={{ height: "3rem" }}
             onClick={adminLogout}
           >
@@ -196,9 +204,9 @@ const Admin: React.FC = () => {
           </Button>
         </Box>
         <Tabs value={tabIndex} onChange={handleChangeTab}>
-          <Tab label="Registered Users" />
-          <Tab label="Network Balance" />
-          <Tab label="Withdraw Funds" />
+          <Tab label='Registered Users' />
+          <Tab label='Network Balance' />
+          <Tab label='Withdraw Funds' />
         </Tabs>
         {tabIndex === 0 && (
           <Box my={4}>
@@ -216,7 +224,7 @@ const Admin: React.FC = () => {
                       <TableCell>{user}</TableCell>
                       <TableCell>
                         <Button
-                          variant="outlined"
+                          variant='outlined'
                           onClick={() => handleUserClick(user)}
                         >
                           View Details
@@ -231,27 +239,27 @@ const Admin: React.FC = () => {
         )}
         {tabIndex === 1 && (
           <Box my={4}>
-            <Typography variant="h5" component="h2">
+            <Typography variant='h5' component='h2'>
               Network Balance: {networkBalance} ETH
             </Typography>
           </Box>
         )}
         {tabIndex === 2 && (
           <Box my={4}>
-            <Typography variant="h5" component="h2">
+            <Typography variant='h5' component='h2'>
               Withdraw Funds
             </Typography>
             <TextField
-              label="Amount in ETH"
+              label='Amount in ETH'
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
-              variant="outlined"
+              variant='outlined'
               fullWidth
-              margin="normal"
+              margin='normal'
             />
             <Button
-              variant="contained"
-              color="primary"
+              variant='contained'
+              color='primary'
               onClick={handleWithdraw}
             >
               Withdraw
@@ -263,7 +271,7 @@ const Admin: React.FC = () => {
         <Dialog open={isModalOpen} onClose={handleCloseModal}>
           <DialogTitle>User Details</DialogTitle>
           <DialogContent>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Deposit Amount:{" "}
               {web3!.utils.fromWei(
                 userDetails.depositAmount.toString(),
@@ -271,16 +279,16 @@ const Admin: React.FC = () => {
               )}{" "}
               ETH
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               First Name: {userDetails.firstName}
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Last Name: {userDetails.lastName}
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Passport No: {userDetails.passportNo}
             </Typography>
-            <Typography variant="body1">
+            <Typography variant='body1'>
               Birthday: {userDetails.birthday}
             </Typography>
             {retrievedFile && (
@@ -290,14 +298,14 @@ const Admin: React.FC = () => {
                     type: "application/octet-stream",
                   })
                 )}
-                download="retrievedDocument"
+                download='retrievedDocument'
               >
                 Download Document
               </a>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseModal} color="primary">
+            <Button onClick={handleCloseModal} color='primary'>
               Close
             </Button>
           </DialogActions>

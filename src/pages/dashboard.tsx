@@ -21,6 +21,7 @@ import { toast } from "react-toastify";
 import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
+const alchemyApiKey = process.env.REACT_APP_ALCHEMY_API_KEY;
 
 interface Transaction {
   type: string;
@@ -30,8 +31,15 @@ interface Transaction {
 
 interface UserContract extends web3.eth.Contract {
   methods: {
-    deposit(userDID: string, amount: string): {
-      send(options: { from: string; value: string; gas: number }): Promise<void>;
+    deposit(
+      userDID: string,
+      amount: string
+    ): {
+      send(options: {
+        from: string;
+        value: string;
+        gas: number;
+      }): Promise<void>;
     };
   };
   getPastEvents(event: string, options: any): Promise<any[]>;
@@ -44,7 +52,8 @@ const Dashboard: React.FC = () => {
   const [userInfo, setUserInfo] = useState<string | null>(null);
   const [contract, setContract] = useState<UserContract | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [fetchingTransactions, setFetchingTransactions] = useState<boolean>(false);
+  const [fetchingTransactions, setFetchingTransactions] =
+    useState<boolean>(false);
   const [userDID, setUserDID] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -125,7 +134,8 @@ const Dashboard: React.FC = () => {
         const parsedTransactions = await Promise.all(
           events.map(async (event: any) => {
             const web3 = new Web3(
-              new Web3.providers.HttpProvider(GANACHE_RPC_URL)
+              // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
+              new Web3.providers.HttpProvider(alchemyApiKey)
             );
             const blockNumber = Number(event.blockNumber);
             const block = await web3.eth.getBlock(blockNumber);
@@ -195,7 +205,8 @@ const Dashboard: React.FC = () => {
         }}
       >
         <Typography variant='h4' component='h1' gutterBottom>
-          {userInfo && <span style={{ color: "blue" }}>{userInfo}'s</span>} Dashboard
+          {userInfo && <span style={{ color: "blue" }}>{userInfo}'s</span>}{" "}
+          Dashboard
         </Typography>
         <Button
           variant='outlined'

@@ -7,6 +7,8 @@ import UserContract from "~/build/contracts/UserRegistration.json";
 import { toast } from "react-toastify";
 
 const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
+const alchemyApiKey = process.env.REACT_APP_ALCHEMY_API_KEY;
+const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
 
 const LoginAdmin: React.FC = () => {
   const [username, setUsername] = useState<string>("");
@@ -20,16 +22,23 @@ const LoginAdmin: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const web3Instance = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
+        // const web3Instance = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
+        const web3Instance = new Web3(
+          new Web3.providers.HttpProvider(alchemyApiKey)
+        );
         const accounts = await web3Instance.eth.getAccounts();
         setAccounts(accounts);
 
         const networkId = await web3Instance.eth.net.getId();
         const deployedNetwork = UserContract.networks[networkId];
         if (deployedNetwork) {
+          // const instance = new web3Instance.eth.Contract(
+          //   UserContract.abi,
+          //   deployedNetwork.address
+          // );
           const instance = new web3Instance.eth.Contract(
             UserContract.abi,
-            deployedNetwork.address
+            contractAddress
           );
           setContract(instance);
         } else {
@@ -66,7 +75,12 @@ const LoginAdmin: React.FC = () => {
 
   return (
     <div style={{ textAlign: "left", marginTop: "20px" }}>
-      <Typography variant='h4' component='h1' gutterBottom sx={{ marginTop: "2rem" }}>
+      <Typography
+        variant='h4'
+        component='h1'
+        gutterBottom
+        sx={{ marginTop: "2rem" }}
+      >
         Admin Login
       </Typography>
       <Box component='form' onSubmit={handleSubmit} sx={{ mt: 2 }}>

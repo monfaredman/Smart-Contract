@@ -1,7 +1,7 @@
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const path = require("path");
 
-module.exports = (env, argv) => {
+module.exports = (env: any, argv: any) => {
   const isProduction = argv.mode === "production";
 
   return {
@@ -64,6 +64,13 @@ module.exports = (env, argv) => {
       hot: true,
       compress: true,
       port: 3000,
+      // proxy: {
+      //   "/api": {
+      //     target: "http://127.0.0.1:2081",
+      //     changeOrigin: true,
+      //     pathRewrite: { "^/api": "" },
+      //   },
+      // },
     },
     optimization: isProduction
       ? {

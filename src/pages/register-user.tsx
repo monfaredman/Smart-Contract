@@ -35,11 +35,13 @@ const Register: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const navigate = useNavigate();
+  const alchemyApiKey = process.env.REACT_APP_ALCHEMY_API_KEY;
 
   useEffect(() => {
     const init = async () => {
       try {
-        const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
+        // const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_RPC_URL));
+        const web3 = new Web3(new Web3.providers.HttpProvider(alchemyApiKey));
         const accounts = await web3.eth.getAccounts();
         setAccount(accounts[0]);
 
@@ -92,7 +94,9 @@ const Register: React.FC = () => {
     const { firstName, lastName, birthday, passportNo, docFile } = userInfo;
 
     if (!firstName || !lastName || !birthday || !passportNo || !docFile) {
-      toast.error("Please fill in all required fields and upload the document.");
+      toast.error(
+        "Please fill in all required fields and upload the document."
+      );
       return;
     }
 
@@ -136,7 +140,12 @@ const Register: React.FC = () => {
 
   return (
     <>
-      <Typography variant='h4' component='h1' gutterBottom sx={{ marginTop: "2rem" }}>
+      <Typography
+        variant='h4'
+        component='h1'
+        gutterBottom
+        sx={{ marginTop: "2rem" }}
+      >
         Register user to network
       </Typography>
       <Box component='form' onSubmit={handleRegister} sx={{ mt: 2 }}>
@@ -172,7 +181,9 @@ const Register: React.FC = () => {
               field: { clearable: true },
               textField: { required: true, error: !userInfo.birthday },
             }}
-            onChange={(newValue) => setUserInfo({ ...userInfo, birthday: newValue })}
+            onChange={(newValue) =>
+              setUserInfo({ ...userInfo, birthday: newValue })
+            }
             disabled={loading}
           />
         </LocalizationProvider>
@@ -205,7 +216,13 @@ const Register: React.FC = () => {
             </Alert>
           )}
         </Box>
-        <Button type='submit' variant='contained' color='primary' fullWidth disabled={loading}>
+        <Button
+          type='submit'
+          variant='contained'
+          color='primary'
+          fullWidth
+          disabled={loading}
+        >
           {loading ? "Registering..." : "Register User"}
         </Button>
         <Button
