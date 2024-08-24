@@ -20,8 +20,9 @@ import { fakeAuthProvider } from "@/middleware/auth";
 import { toast } from "react-toastify";
 import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
 
-const GANACHE_RPC_URL = "http://127.0.0.1:7545"; // Ganache RPC URL
-const alchemyApiKey = process.env.REACT_APP_ALCHEMY_API_KEY;
+const GANACHE_RPC_URL =
+  process.env.REACT_APP_GANACHE_RPC_URL || "http://127.0.0.1:7545";
+const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY || "undefined";
 
 interface Transaction {
   type: string;

@@ -47,11 +47,13 @@ const Register: React.FC = () => {
 
         const networkId = await web3.eth.net.getId();
         const deployedNetwork = UserContract.networks[networkId];
+        console.log("deployedNetwork", deployedNetwork);
         if (deployedNetwork) {
           const instance = new web3.eth.Contract(
             UserContract.abi,
             deployedNetwork.address
           );
+          console.log("instance", instance);
           setContract(instance);
         } else {
           toast.error("Contract not deployed on the detected network.");

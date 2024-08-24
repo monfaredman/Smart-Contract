@@ -1,5 +1,6 @@
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const path = require("path");
+const Dotenv = require("dotenv-webpack");
 
 module.exports = (env: any, argv: any) => {
   const isProduction = argv.mode === "production";
@@ -55,6 +56,7 @@ module.exports = (env: any, argv: any) => {
             }
           : false,
       }),
+      new Dotenv(),
     ],
     devServer: {
       historyApiFallback: true,
