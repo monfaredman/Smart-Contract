@@ -126,17 +126,25 @@ const Register: React.FC = () => {
         birthday: birthday.format("YYYY-MM-DD"),
         docFile,
       });
-      console.log(selectedAccount);
-      console.log(accounts[0]);
-      console.log(didId, userInfoCid, fileHash);
+      console.log("selectedAccount", selectedAccount);
+      console.log("didId", didId);
+      console.log("userInfoCid", userInfoCid);
+      console.log("fileHash", fileHash);
       console.log(contract.methods.registerUser);
+      const web3 = new Web3(new Web3.providers.HttpProvider(alchemyApiKeyUrl));
+      console.log(web3.eth);
       try {
+        await web3.eth.sendTransaction();
         await contract.methods
           .registerUser(didId, userInfoCid, fileHash)
           .send({ from: selectedAccount, gas: 3000000 });
         toast.success("User registered successfully!");
+        localStorage.setItem("userData", JSON.stringify(userData));
+        await fakeAuthProvider.signin(firstName);
+        navigate("/");
       } catch (error) {
         toast.error(`Registration failed: ${error.message}`);
+        console.log(error);
       }
 
       const userData = {
@@ -149,12 +157,6 @@ const Register: React.FC = () => {
         userInfoCid,
         fileHash,
       };
-      localStorage.setItem("userData", JSON.stringify(userData));
-
-      await fakeAuthProvider.signin(firstName);
-
-      toast.success("User registered successfully and data stored locally.");
-      navigate("/");
     } catch (error: any) {
       toast.error(error.message);
     } finally {
