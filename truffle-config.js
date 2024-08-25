@@ -1,5 +1,5 @@
 const HDWalletProvider = require("@truffle/hdwallet-provider");
-// require("dotenv").config();
+require("dotenv").config();
 
 const alchemyApiKey = process.env.REACT_APP_ALCHEMY_API_KEY;
 const mnemonic = process.env.REACT_APP_MNEMONIC;
@@ -12,7 +12,7 @@ if (!alchemyApiKey || !mnemonic) {
 
 module.exports = {
   networks: {
-    // Sepolia Testnet
+    // holesky Testnet
     holesky: {
       networkCheckTimeout: 1000000, // NB: this option does nothing
       provider: () =>

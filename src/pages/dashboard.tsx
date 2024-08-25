@@ -19,10 +19,12 @@ import { useNavigate } from "react-router-dom";
 import { fakeAuthProvider } from "@/middleware/auth";
 import { toast } from "react-toastify";
 import UserContract from "~/build/contracts/UserRegistration.json"; // Update the contract import
+import { useEthereumAccount } from "@/hooks/userAccount";
 
 const GANACHE_RPC_URL =
   process.env.REACT_APP_GANACHE_RPC_URL || "http://127.0.0.1:7545";
-const ALCHEMY_API_KEY = process.env.REACT_APP_ALCHEMY_API_KEY || "undefined";
+
+const alchemyApiKeyUrl: string = `https://eth-holesky.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
 
 interface Transaction {
   type: string;
@@ -42,6 +44,16 @@ interface UserContract extends web3.eth.Contract {
         gas: number;
       }): Promise<void>;
     };
+    adminLogin(
+      userDID: string,
+      amount: string
+    ): {
+      send(options: {
+        from: string;
+        value: string;
+        gas: number;
+      }): Promise<void>;
+    };
   };
   getPastEvents(event: string, options: any): Promise<any[]>;
 }
@@ -49,31 +61,41 @@ interface UserContract extends web3.eth.Contract {
 const Dashboard: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [depositAmount, setDepositAmount] = useState<string>("");
-  const [account, setAccount] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<string | null>(null);
   const [contract, setContract] = useState<UserContract | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [fetchingTransactions, setFetchingTransactions] =
     useState<boolean>(false);
   const [userDID, setUserDID] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
+  const {
+    isLoading,
+    isMetaMaskInstalled,
+    isConnected,
+    accounts,
+    selectedAccount,
+    balance,
+  } = useEthereumAccount();
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
       try {
         if (window.ethereum) {
-          const web3 = new Web3(window.ethereum);
+          // const web3 = new Web3(window.ethereum);
+          const web3 = new Web3(
+            // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
+            new Web3.providers.HttpProvider(alchemyApiKeyUrl)
+          );
           try {
             await window.ethereum.request({ method: "eth_requestAccounts" });
           } catch (error) {
             toast.error("User denied account access");
             return;
           }
-
-          const accounts = await web3.eth.getAccounts();
-          setAccount(accounts[0]);
 
           const networkId = await web3.eth.net.getId();
           const deployedNetwork = UserContract.networks[networkId];
@@ -110,9 +132,31 @@ const Dashboard: React.FC = () => {
     init();
   }, [navigate]);
 
+  // useEffect(() => {
+  //   // Fetch transactions only if all required variables are set
+  //   if (contract && userDID && selectedAccount) {
+  //     fetchTransactions();
+  //   }
+  // }, [contract, userDID, selectedAccount]); //
+
   useEffect(() => {
-    fetchTransactions();
-  }, [contract, userDID]);
+    const init = async () => {
+      // Existing initialization logic...
+
+      // Simulate contract and userDID setup
+      if (contract && userDID && selectedAccount) {
+        setIsInitialized(true);
+      }
+    };
+
+    init();
+  }, [contract, userDID, selectedAccount]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      fetchTransactions();
+    }
+  }, [isInitialized]);
 
   useEffect(() => {
     const getUserInfo = () => {
@@ -123,7 +167,8 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const fetchTransactions = async () => {
-    if (contract && userDID && account) {
+    console.log(contract, userDID, selectedAccount);
+    if (contract && userDID && selectedAccount) {
       setFetchingTransactions(true);
       try {
         const events = await contract.getPastEvents("Deposit", {
@@ -136,7 +181,7 @@ const Dashboard: React.FC = () => {
           events.map(async (event: any) => {
             const web3 = new Web3(
               // new Web3.providers.HttpProvider(GANACHE_RPC_URL)
-              new Web3.providers.HttpProvider(alchemyApiKey)
+              new Web3.providers.HttpProvider(alchemyApiKeyUrl)
             );
             const blockNumber = Number(event.blockNumber);
             const block = await web3.eth.getBlock(blockNumber);
@@ -162,20 +207,75 @@ const Dashboard: React.FC = () => {
       toast.error("Waiting for contract, userDID, and account to be set.");
     }
   };
+  const checkUserRegistration = async (userDID: string) => {
+    try {
+      const userInfo = await contract.methods.getUserInfo(userDID).call();
+      return userInfo.isRegistered;
+    } catch (error) {
+      console.error("Error fetching user info:", error);
+      return false;
+    }
+  };
+  const getAllRegisteredUsers = async () => {
+    try {
+      const registeredUsers = await contract.methods
+        .getAllRegisteredUsersDIDs()
+        .call({ from: selectedAccount });
+      console.log("Registered Users:", registeredUsers);
+    } catch (error) {
+      console.error("Error fetching registered users:", error);
+    }
+  };
+
+  const adminLogin = async () => {
+    console.log("Contract Address:", contract!.options.address);
+    console.log("Contract ABI:", contract!.options.jsonInterface);
+
+    console.log("contract?.methods", contract?.methods);
+    try {
+      await contract!.methods["adminLogin(string,string)"](
+        "admin",
+        "password"
+      ).send({
+        from: selectedAccount,
+      });
+      return true;
+    } catch (error: any) {
+      toast.error(error.message);
+      console.log(error);
+      return false;
+    }
+  };
 
   const handleDeposit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!contract || !userDID || !account || !depositAmount) {
+    console.log(contract, userDID, selectedAccount, depositAmount);
+
+    if (!contract || !userDID || !selectedAccount || !depositAmount) {
       toast.error("Missing contract, userDID, account, or depositAmount.");
       return;
     }
+    let isRegistered;
+    const isAdminLogin = await adminLogin();
+    if (isAdminLogin) {
+      await getAllRegisteredUsers();
+      isRegistered = await checkUserRegistration(userDID);
+    }
+
+    if (!isRegistered) {
+      toast.error(
+        "User is not registered. Please register before making a deposit."
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
       await contract.methods
         .deposit(userDID, Web3.utils.toWei(depositAmount, "ether"))
         .send({
-          from: account,
+          from: selectedAccount,
           value: Web3.utils.toWei(depositAmount, "ether"),
           gas: 3000000,
         });
@@ -205,38 +305,38 @@ const Dashboard: React.FC = () => {
           mt: 2,
         }}
       >
-        <Typography variant='h4' component='h1' gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom>
           {userInfo && <span style={{ color: "blue" }}>{userInfo}'s</span>}{" "}
           Dashboard
         </Typography>
         <Button
-          variant='outlined'
-          size='small'
-          color='error'
+          variant="outlined"
+          size="small"
+          color="error"
           sx={{ height: "3rem" }}
           onClick={handleLogout}
         >
           Logout
         </Button>
       </Box>
-      <Box component='form' onSubmit={handleDeposit} sx={{ mt: 2, mb: 4 }}>
-        <Typography variant='h5' component='h2' gutterBottom>
+      <Box component="form" onSubmit={handleDeposit} sx={{ mt: 2, mb: 4 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
           Make a Deposit
         </Typography>
         <TextField
-          label='Deposit Amount (ETH)'
-          variant='outlined'
+          label="Deposit Amount (ETH)"
+          variant="outlined"
           fullWidth
           value={depositAmount}
           onChange={(e) => setDepositAmount(e.target.value)}
-          margin='normal'
+          margin="normal"
           required
           disabled={loading}
         />
         <Button
-          type='submit'
-          variant='contained'
-          color='primary'
+          type="submit"
+          variant="contained"
+          color="primary"
           sx={{ mb: 2 }}
           disabled={loading}
         >
@@ -244,7 +344,7 @@ const Dashboard: React.FC = () => {
         </Button>
       </Box>
 
-      <Typography variant='h5' component='h2' gutterBottom>
+      <Typography variant="h5" component="h2" gutterBottom>
         Transaction History
       </Typography>
       <Box
