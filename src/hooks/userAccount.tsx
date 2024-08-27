@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { toast } from "react-toastify";
+import { useDialog } from "@/contexts/dialogContext";
 
 export const useEthereumAccount = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -11,6 +12,8 @@ export const useEthereumAccount = () => {
   const [balance, setBalance] = useState<string | null>(null);
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
 
+  const { showDialog, hideDialog } = useDialog();
+
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
@@ -18,29 +21,34 @@ export const useEthereumAccount = () => {
         setIsMetaMaskInstalled(true);
         try {
           const provider = new ethers.BrowserProvider(window.ethereum);
+
+          // Listen for account changes and disconnections
+          window.ethereum.on("accountsChanged", async (accounts: string[]) => {
+            if (accounts.length > 0) {
+              handleAccountChange(accounts[0], provider, signer!);
+            } else {
+              handleAccountDisconnect();
+              showDialog(); // Show the dialog when MetaMask is disconnected
+            }
+          });
+
+          window.ethereum.on("disconnect", () => {
+            handleAccountDisconnect();
+            showDialog();
+          });
+
+          // Request accounts and handle connection
           await provider.send("eth_requestAccounts", []); // Prompts user to connect their wallet
 
-          // Get the signer
           const signer = await provider.getSigner();
-
-          // Fetch the address
           const account = await signer.getAddress();
 
           if (account) {
             handleAccountChange(account, provider, signer);
-            window.ethereum.on(
-              "accountsChanged",
-              async (accounts: string[]) => {
-                if (accounts.length > 0) {
-                  handleAccountChange(accounts[0], provider, signer);
-                } else {
-                  handleAccountDisconnect();
-                }
-              }
-            );
           }
         } catch (error) {
           toast.error((error as Error).message);
+          showDialog(); // Show the dialog on error
         }
       } else {
         setIsMetaMaskInstalled(false);
@@ -50,6 +58,16 @@ export const useEthereumAccount = () => {
     };
 
     init();
+
+    return () => {
+      if (window.ethereum?.removeListener) {
+        window.ethereum.removeListener(
+          "accountsChanged",
+          handleAccountDisconnect
+        );
+        window.ethereum.removeListener("disconnect", handleAccountDisconnect);
+      }
+    };
   }, []);
 
   const handleAccountChange = async (
@@ -82,6 +100,6 @@ export const useEthereumAccount = () => {
     accounts,
     selectedAccount,
     balance,
-    signer, // Exporting the signer
+    signer,
   };
 };
