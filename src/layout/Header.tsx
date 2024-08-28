@@ -1,4 +1,4 @@
-import React, { useState, useEffect, MouseEvent } from "react";
+import React, { useState, MouseEvent } from "react";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
@@ -9,7 +9,6 @@ import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import { LoadingButton } from "@mui/lab";
-import Web3 from "web3";
 import { toast } from "react-toastify";
 import { useEthereumAccount } from "@/hooks/userAccount";
 
@@ -29,6 +28,8 @@ const Header: React.FC = () => {
     accounts,
     selectedAccount,
     balance,
+    connectToMetaMask,
+    logout,
   } = useEthereumAccount();
 
   const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
@@ -39,69 +40,12 @@ const Header: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const connectToMetaMask = async () => {
-    setIsLoading(true);
-    if (window.ethereum) {
-      try {
-        const web3 = new Web3(window.ethereum);
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
-        if (accounts.length > 0) {
-          const account = accounts[0];
-          setAccounts(accounts);
-          setSelectedAccount(account);
-          setIsConnected(true);
-
-          // Get balance
-          const balanceWei = await web3.eth.getBalance(account);
-          const balanceEth = web3.utils.fromWei(balanceWei, "ether");
-          setBalance(balanceEth);
-
-          window.ethereum.on("accountsChanged", async (accounts: string[]) => {
-            if (accounts.length > 0) {
-              setAccounts(accounts);
-              const account = accounts[0];
-              setSelectedAccount(account);
-
-              // Update balance on account change
-              const balanceWei = await web3.eth.getBalance(account);
-              const balanceEth = web3.utils.fromWei(balanceWei, "ether");
-              setBalance(balanceEth);
-            } else {
-              // Handle account disconnection
-              setAccounts([]);
-              setSelectedAccount(null);
-              setIsConnected(false);
-              setBalance(null);
-            }
-          });
-        }
-      } catch (error) {
-        toast.error((error as Error).message);
-      }
-    }
-    setIsLoading(false);
-  };
-
-  const installMetaMask = () => {
-    window.open("https://metamask.io/download.html", "_blank");
-  };
-
-  const logout = () => {
-    // Simulate disconnection by resetting the states
-    setAccounts([]);
-    setSelectedAccount(null);
-    setIsConnected(false);
-    setBalance(null);
-  };
-
   return (
-    <AppBar position="static">
+    <AppBar position='static'>
       <Toolbar>
         <Typography
-          variant="h4"
-          component="div"
+          variant='h4'
+          component='div'
           sx={{
             flexGrow: 1,
             color: "#fff",
@@ -112,26 +56,26 @@ const Header: React.FC = () => {
           DApp
         </Typography>
         {isLoading ? (
-          <CircularProgress color="inherit" />
+          <CircularProgress color='inherit' />
         ) : isMetaMaskInstalled ? (
           isConnected ? (
             <>
               <IconButton
-                size="large"
-                edge="end"
-                color="inherit"
-                aria-label="profile"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
+                size='large'
+                edge='end'
+                color='inherit'
+                aria-label='profile'
+                aria-controls='menu-appbar'
+                aria-haspopup='true'
                 onClick={handleMenuOpen}
                 sx={{ ml: 2 }}
               >
                 <Avatar sx={{ width: "4rem", height: "4rem" }}>
-                  {selectedAccount && selectedAccount.slice(1, 5)}...
+                  {selectedAccount && selectedAccount.slice(0, 4)}...
                 </Avatar>
               </IconButton>
               <Menu
-                id="menu-appbar"
+                id='menu-appbar'
                 anchorEl={anchorEl}
                 anchorOrigin={{
                   vertical: "top",
@@ -192,7 +136,7 @@ const Header: React.FC = () => {
             </>
           ) : (
             <LoadingButton
-              color="inherit"
+              color='inherit'
               onClick={connectToMetaMask}
               loading={isLoading}
             >
@@ -200,7 +144,12 @@ const Header: React.FC = () => {
             </LoadingButton>
           )
         ) : (
-          <Button color="inherit" onClick={installMetaMask}>
+          <Button
+            color='inherit'
+            onClick={() =>
+              window.open("https://metamask.io/download.html", "_blank")
+            }
+          >
             Install MetaMask
           </Button>
         )}

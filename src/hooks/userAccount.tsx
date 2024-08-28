@@ -15,50 +15,7 @@ export const useEthereumAccount = () => {
   const { showDialog, hideDialog } = useDialog();
 
   useEffect(() => {
-    const init = async () => {
-      setIsLoading(true);
-      if (window.ethereum) {
-        setIsMetaMaskInstalled(true);
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-
-          // Listen for account changes and disconnections
-          window.ethereum.on("accountsChanged", async (accounts: string[]) => {
-            if (accounts.length > 0) {
-              handleAccountChange(accounts[0], provider, signer!);
-            } else {
-              handleAccountDisconnect();
-              showDialog(); // Show the dialog when MetaMask is disconnected
-            }
-          });
-
-          window.ethereum.on("disconnect", () => {
-            handleAccountDisconnect();
-            showDialog();
-          });
-
-          // Request accounts and handle connection
-          await provider.send("eth_requestAccounts", []); // Prompts user to connect their wallet
-
-          const signer = await provider.getSigner();
-          const account = await signer.getAddress();
-
-          if (account) {
-            handleAccountChange(account, provider, signer);
-          }
-        } catch (error) {
-          toast.error((error as Error).message);
-          showDialog(); // Show the dialog on error
-        }
-      } else {
-        setIsMetaMaskInstalled(false);
-        toast.error("MetaMask is not installed");
-      }
-      setIsLoading(false);
-    };
-
     init();
-
     return () => {
       if (window.ethereum?.removeListener) {
         window.ethereum.removeListener(
@@ -69,7 +26,47 @@ export const useEthereumAccount = () => {
       }
     };
   }, []);
+  const init = async () => {
+    setIsLoading(true);
+    if (window.ethereum) {
+      setIsMetaMaskInstalled(true);
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
 
+        // Listen for account changes and disconnections
+        window.ethereum.on("accountsChanged", async (accounts: string[]) => {
+          if (accounts.length > 0) {
+            handleAccountChange(accounts[0], provider, signer!);
+          } else {
+            handleAccountDisconnect();
+            showDialog(); // Show the dialog when MetaMask is disconnected
+          }
+        });
+
+        window.ethereum.on("disconnect", () => {
+          handleAccountDisconnect();
+          showDialog();
+        });
+
+        // Request accounts and handle connection
+        await provider.send("eth_requestAccounts", []); // Prompts user to connect their wallet
+
+        const signer = await provider.getSigner();
+        const account = await signer.getAddress();
+
+        if (account) {
+          handleAccountChange(account, provider, signer);
+        }
+      } catch (error) {
+        toast.error((error as Error).message);
+        showDialog(); // Show the dialog on error
+      }
+    } else {
+      setIsMetaMaskInstalled(false);
+      toast.error("MetaMask is not installed");
+    }
+    setIsLoading(false);
+  };
   const handleAccountChange = async (
     account: string,
     provider: ethers.BrowserProvider,
@@ -93,6 +90,14 @@ export const useEthereumAccount = () => {
     setSigner(null);
   };
 
+  const connectToMetaMask = () => {
+    init();
+  };
+
+  const logout = () => {
+    handleAccountDisconnect();
+  };
+
   return {
     isLoading,
     isMetaMaskInstalled,
@@ -101,5 +106,7 @@ export const useEthereumAccount = () => {
     selectedAccount,
     balance,
     signer,
+    connectToMetaMask,
+    logout,
   };
 };
