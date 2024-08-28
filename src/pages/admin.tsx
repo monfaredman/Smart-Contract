@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import Web3 from "web3";
 import {
   Container,
@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  CircularProgress,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import { useEthereumAccount } from "@/hooks/userAccount";
@@ -28,6 +29,11 @@ import { retrieveUserInfo, retrieveDocFile } from "@/services/services";
 import { useNavigate } from "react-router-dom";
 import { formatEther, parseEther } from "ethers";
 
+interface Loading {
+  users: boolean;
+  balance: boolean;
+  withdraw: boolean;
+}
 interface UserInfo {
   depositAmount: number;
   firstName: string;
@@ -48,7 +54,11 @@ const Admin: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [retrievedFile, setRetrievedFile] = useState<Uint8Array | null>(null);
   const [userDetails, setUserDetails] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<Loading>({
+    users: false,
+    balance: false,
+    withdraw: false,
+  });
 
   const navigate = useNavigate();
   const { signer } = useEthereumAccount();
@@ -65,17 +75,21 @@ const Admin: React.FC = () => {
 
   const fetchRegisteredUsers = async () => {
     if (contract) {
+      setLoading((prev) => ({ ...prev, users: true }));
       try {
         const users = await contract.getAllRegisteredUsersDIDs();
         setRegisteredUsers(users);
       } catch (error: any) {
         toast.error(error.message);
+      } finally {
+        setLoading((prev) => ({ ...prev, users: false }));
       }
     }
   };
 
   const fetchNetworkBalance = async () => {
     try {
+      setLoading((prev) => ({ ...prev, balance: true }));
       // Call the getNetworkBalance function from your contract
       const balance = await contract!.getNetworkBalance();
 
@@ -87,12 +101,14 @@ const Admin: React.FC = () => {
     } catch (error: any) {
       // Display an error message to the user
       toast.error(error.message || "Failed to fetch network balance.");
+    } finally {
+      setLoading((prev) => ({ ...prev, balance: false }));
     }
   };
 
-  const handleWithdraw = async () => {
-    setLoading(true);
-
+  const handleWithdraw = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoading((prev) => ({ ...prev, withdraw: true }));
     try {
       // Fetch the latest network balance before withdrawal
       await fetchNetworkBalance();
@@ -108,7 +124,6 @@ const Admin: React.FC = () => {
 
       // Call the withdraw function from the contract
       await contract!.withdraw(amountWei);
-
       // Clear the withdrawal amount input after a successful transaction
       setWithdrawAmount("");
 
@@ -118,7 +133,7 @@ const Admin: React.FC = () => {
       // Display an error message if the withdrawal fails
       toast.error(error.message || "Failed to withdraw.");
     } finally {
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, withdraw: false }));
     }
   };
 
@@ -189,19 +204,22 @@ const Admin: React.FC = () => {
         </Tabs>
         {tabIndex === 0 && (
           <Box my={4}>
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>User DID</TableCell>
-                    {/* <TableCell>Actions</TableCell> */}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {registeredUsers.map((user, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{user}</TableCell>
-                      {/* <TableCell>
+            {loading.users ? (
+              <CircularProgress />
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>User DID</TableCell>
+                      {/* <TableCell>Actions</TableCell> */}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {registeredUsers.map((user, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{user}</TableCell>
+                        {/* <TableCell>
                         <Button
                           variant='outlined'
                           onClick={() => handleUserClick(user)}
@@ -209,22 +227,27 @@ const Admin: React.FC = () => {
                           View Details
                         </Button>
                       </TableCell> */}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Box>
         )}
         {tabIndex === 1 && (
           <Box my={4}>
-            <Typography variant='h5' component='h2'>
-              Network Balance: {networkBalance} ETH
-            </Typography>
+            {loading.balance ? (
+              <CircularProgress />
+            ) : (
+              <Typography variant='h5' component='h2'>
+                Network Balance: {networkBalance} ETH
+              </Typography>
+            )}
           </Box>
         )}
         {tabIndex === 2 && (
-          <Box my={4}>
+          <Box component='form' onSubmit={handleWithdraw} my={4}>
             <Typography variant='h5' component='h2'>
               Withdraw Funds
             </Typography>
@@ -235,15 +258,17 @@ const Admin: React.FC = () => {
               variant='outlined'
               fullWidth
               margin='normal'
-              disabled={loading}
+              disabled={loading.withdraw}
+              required
+              error={!withdrawAmount}
             />
             <Button
               variant='contained'
               color='primary'
-              onClick={handleWithdraw}
-              disabled={loading}
+              type='submit'
+              disabled={loading.withdraw}
             >
-              {loading ? "Processing..." : "Withdraw"}
+              {loading.withdraw ? "Processing..." : "Withdraw"}
             </Button>
           </Box>
         )}

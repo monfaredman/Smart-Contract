@@ -9,7 +9,6 @@ import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import { LoadingButton } from "@mui/lab";
-import { toast } from "react-toastify";
 import { useEthereumAccount } from "@/hooks/userAccount";
 
 declare global {
